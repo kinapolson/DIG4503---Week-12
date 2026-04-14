@@ -1,0 +1,1818 @@
+╭─── Claude Code v2.1.81 ──────────────────────────────────────────────────────╮
+│                                                    │ Tips for getting        │
+│                  Welcome back KP!                  │ started                 │
+│                                                    │ Run /init to create a … │
+│                       ▐▛███▜▌                      │ ─────────────────────── │
+│                      ▝▜█████▛▘                     │ Recent activity         │
+│                        ▘▘ ▝▝                       │ No recent activity      │
+│  Sonnet 4.6 · Claude Pro · kpolson824@gmail.com's  │                         │
+│  Organization                                      │                         │
+│     ~\OneDrive\UCF\DIG4503 Spring 2026\Week 12     │                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+✻ Conversation compacted (ctrl+o for history)
+
+  ⎿  Referenced file src\MastersDashboard.jsx
+  ⎿  Read .env (3 lines)
+  ⎿  Read netlify.toml (7 lines)
+  ⎿  Read src\GolfLeaderboard.jsx (266 lines)
+  ⎿  Read src\App.jsx (6 lines)
+
+● Bash(cd "C:/Users/kpols/OneDrive/UCF/DIG4503 Spring 2026/Week 12" && git
+      status)
+  ⎿  On branch main
+     Your branch is up to date with 'origin/main'.
+     … +7 lines (ctrl+o to expand)
+
+● Bash(cd "C:/Users/kpols/OneDrive/UCF/DIG4503 Spring 2026/Week 12" && git add
+      src/MastersDashboard.jsx && git commit -m "$(cat <<'EOF'
+      Improve UI: score pills, positi…)
+  ⎿  warning: in the working copy of 'src/MastersDashboard.jsx', LF will be
+      replaced by CRLF the next time Git touches it
+     [main e5a9eb8] Improve UI: score pills, position badges, animated load
+     … +2 lines (ctrl+o to expand)
+
+● Bash(cd "C:/Users/kpols/OneDrive/UCF/DIG4503 Spring 2026/Week 12" && git push)
+  ⎿  To https://github.com/kinapolson/DIG4503---Week-12.git
+        d7c7c45..e5a9eb8  main -> main
+
+● Pushed. The UI improvements are now live on GitHub and Netlify will
+  auto-deploy.
+
+✻ Cooked for 3m 48s
+
+> Add a refresh button to my react app that re-fetches:                         
+-weather data                                                                   
+-leaderboard data                                                               
+that button should trigger both api calls again                                 
+update the component accordingly                                                
+
+  Read 1 file (ctrl+o to expand)
+
+● The pattern is clear. I'll:
+  1. Extract the fetch logic into a fetchAll function
+  2. Add a refreshCount state that increments on button click, triggering
+  useEffect
+  3. Add a refresh button to the card headers via the Card component
+
+● Update(src\MastersDashboard.jsx)
+  ⎿  Added 6 lines
+      41      from { opacity: 0; transform: translateY(6px); }
+      42      to   { opacity: 1; transform: translateY(0);   }
+      43    }
+      44 +  @keyframes spin {                                            
+      45 +    to { transform: rotate(360deg); }                          
+      46 +  }                                                            
+      47    .lb-row { animation: fadein 0.3s ease both; }
+      48    .lb-row:hover { background-color: #F5F0E8 !important; }
+      49 +  .refresh-btn:hover { background-color: rgba(255,255,255,0.25)
+         + !important; }                                                 
+      50 +  .refresh-btn:active { transform: scale(0.93); }              
+      51 +  .refresh-btn.spinning svg { animation: spin 0.7s linear infin
+         +ite; }                                                         
+      52  `;
+      53  
+      54  // ─── Helpers ────────────────────────────────────────────────
+          ──────────────────
+
+● Update(src\MastersDashboard.jsx)
+  ⎿  Added 20 lines, removed 2 lines
+       75  
+       76  // ─── Shared UI Primitives ──────────────────────────────────
+           ───────────────────
+       77  
+       78 -function Card({ title, subtitle, accent, children }) {        
+       78 +function RefreshButton({ onClick, spinning }) {               
+       79    return (
+       80 +    <button                                                   
+       81 +      className={`refresh-btn${spinning ? " spinning" : ""}`} 
+       82 +      onClick={onClick}                                       
+       83 +      title="Refresh"                                         
+       84 +      style={S.refreshBtn}                                    
+       85 +    >                                                         
+       86 +      <svg width="14" height="14" viewBox="0 0 24 24" fill="no
+          +ne" stroke="currentColor" strokeWidth="2.5" strokeLinecap="rou
+          +nd" strokeLinejoin="round">                                   
+       87 +        <polyline points="23 4 23 10 17 10" />                
+       88 +        <polyline points="1 20 1 14 7 14" />                  
+       89 +        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 
+          +4.36A9 9 0 0 0 20.49 15" />                                   
+       90 +      </svg>                                                  
+       91 +    </button>                                                 
+       92 +  );                                                          
+       93 +}                                                             
+       94 +                                                              
+       95 +function Card({ title, subtitle, accent, children, onRefresh, 
+          +refreshing }) {                                               
+       96 +  return (                                                    
+       97      <div style={S.card}>
+       81 -      {/* Yellow top accent bar */}                           
+       98 +      {/* Colored top accent bar */}                          
+       99        <div style={{ height: 4, backgroundColor: accent || C.ye
+           llow }} />
+      100        <div style={S.cardHead}>
+      101          <div>
+      102            <h2 style={S.cardTitle}>{title}</h2>
+      103            {subtitle && <span style={S.cardSub}>{subtitle}</spa
+           n>}
+      104          </div>
+      105 +        {onRefresh && <RefreshButton onClick={onRefresh} spinn
+          +ing={refreshing} />}                                          
+      106        </div>
+      107        {children}
+      108      </div>
+
+● Now update the main component to use a refreshCount trigger and pass the
+  refresh handler + spinning state to each card:
+
+● Update(src\MastersDashboard.jsx)
+  ⎿  Added 12 lines, removed 1 line
+      291    const [boardLoading, setBoardLoading] = useState(true);
+      292    const [boardError,   setBoardError]   = useState(null);
+      293  
+      294 +  const [refreshCount, setRefreshCount] = useState(0);        
+      295 +                                                              
+      296 +  function refresh() {                                        
+      297 +    setWeatherLoading(true);                                  
+      298 +    setWeatherError(null);                                    
+      299 +    setBoardLoading(true);                                    
+      300 +    setBoardError(null);                                      
+      301 +    setRefreshCount((n) => n + 1);                            
+      302 +  }                                                           
+      303 +                                                              
+      304    useEffect(() => {
+      305  
+      306      // 1. Weather
+     ...
+      349          .finally(() => setBoardLoading(false));
+      350      }
+      351  
+      342 -  }, []);                                                     
+      352 +  // eslint-disable-next-line react-hooks/exhaustive-deps     
+      353 +  }, [refreshCount]);                                         
+      354  
+      355    const roundLabel = tournament
+      356      ? `Round ${tournament.live_details.current_round} of ${tou
+           rnament.live_details.total_rounds} · ${
+
+● Now pass onRefresh and refreshing to both cards:
+
+● Update(src\MastersDashboard.jsx)
+  ⎿  Added 8 lines, removed 1 line
+      384            title={tournament ? tournament.name : "Leaderboard"}
+      385            subtitle={roundLabel}
+      386            accent={C.yellow}
+      387 +          onRefresh={refresh}                                 
+      388 +          refreshing={boardLoading}                           
+      389          >
+      390            <LeaderboardSection
+      391              data={leaderboard}
+     ...
+      395          </Card>
+      396  
+      397          <div style={S.sidebar}>
+      396 -          <Card title="Course Weather" accent={C.azalea}>     
+      398 +          <Card                                               
+      399 +            title="Course Weather"                            
+      400 +            accent={C.azalea}                                 
+      401 +            onRefresh={refresh}                               
+      402 +            refreshing={weatherLoading}                       
+      403 +          >                                                   
+      404              <WeatherSection
+      405                data={weather}
+      406                loading={weatherLoading}
+
+● Now add the refreshBtn style to the S object:
+
+● Update(src\MastersDashboard.jsx)
+  ⎿  Added 13 lines
+      535      marginTop: 3,
+      536      letterSpacing: "0.05em",
+      537    },
+      538 +  refreshBtn: {                                               
+      539 +    background: "rgba(255,255,255,0.15)",                     
+      540 +    border: "1px solid rgba(255,255,255,0.3)",                
+      541 +    borderRadius: 6,                                          
+      542 +    color: C.white,                                           
+      543 +    cursor: "pointer",                                        
+      544 +    display: "flex",                                          
+      545 +    alignItems: "center",                                     
+      546 +    justifyContent: "center",                                 
+      547 +    padding: "6px 8px",                                       
+      548 +    transition: "background 0.15s, transform 0.1s",           
+      549 +    flexShrink: 0,                                            
+      550 +  },                                                          
+      551  
+      552    // Loading
+      553    loadingWrap: {
+
+● Now commit and push:
+
+● Bash(cd "C:/Users/kpols/OneDrive/UCF/DIG4503 Spring 2026/Week 12" && git add
+      src/MastersDashboard.jsx && git commit -m "$(cat <<'EOF'
+      Add refresh button to re-fetch…)
+  ⎿  warning: in the working copy of 'src/MastersDashboard.jsx', LF will be
+      replaced by CRLF the next time Git touches it
+     [main 43df71c] Add refresh button to re-fetch weather and leaderboard
+     … +4 lines (ctrl+o to expand)
+
+● Done. Here's what was added:
+
+  - RefreshButton — a small circular-arrow SVG button in each card's header.
+  While data is loading, the icon spins via a CSS @keyframes spin animation.
+  - refreshCount state — incremented by the refresh() function. The useEffect
+  dependency array now includes refreshCount, so clicking the button re-runs
+  both API fetches.
+  - Immediate reset — refresh() sets both loading states to true and clears
+  errors before incrementing the counter, so the loading indicators appear
+  instantly.
+
+  Both cards share the same refresh() function, so either button re-fetches both
+   APIs simultaneously.
+
+✻ Sautéed for 1m 6s
+
+> Change it to the PGA Golf Live Leaderboard, color thme will be Dark Azure     
+(#003C80), Full White (#FFFFFF), and Shiny Red (#F1373D), and change the        
+weather not to be augusta, georgia, us but to the location for pga golf         
+● The 2026 PGA Championship is at Quail Hollow Club in Charlotte, NC (May
+  14–17). I'll update the weather location to Charlotte and rebrand everything
+  to PGA colors.
+
+  Read 1 file (ctrl+o to expand)
+
+● The changes are pervasive (colors referenced throughout), so I'll rewrite the
+  file cleanly in one pass.
+
+● Write(src\MastersDashboard.jsx)
+  ⎿  Added 60 lines, removed 68 lines
+       4  const OPENWEATHER_KEY = process.env.REACT_APP_OPENWEATHER_KEY;
+       5  const RAPIDAPI_KEY    = process.env.REACT_APP_RAPIDAPI_KEY;
+       6  
+       7 +// 2026 PGA Championship — Quail Hollow Club, Charlotte, NC    
+       8  const WEATHER_URL =
+       8 -  `https://api.openweathermap.org/data/2.5/weather?q=Augusta,GA
+         -,US&units=imperial&appid=${OPENWEATHER_KEY}`;                  
+       9 +  `https://api.openweathermap.org/data/2.5/weather?q=Charlotte,
+         +NC,US&units=imperial&appid=${OPENWEATHER_KEY}`;                
+      10  
+      11  const GOLF_URL = `https://golf-leaderboard-data.p.rapidapi.com/
+          leaderboard/25`;
+      12  
+     ...
+      17  
+      18  // ─── Theme ──────────────────────────────────────────────────
+          ──────────────────
+      19  const C = {
+      19 -  green:      "#006747",                                       
+      20 -  greenDark:  "#004D35",                                       
+      21 -  greenMid:   "#00593C",                                       
+      22 -  yellow:     "#F5D130",                                       
+      23 -  azalea:     "#E8A0B0",                                       
+      24 -  blue:       "#1B3A6B",                                       
+      25 -  white:      "#FFFFFF",                                       
+      26 -  khaki:      "#C2B280",                                       
+      27 -  khakiLight: "#F0EBE0",                                       
+      28 -  khakiBg:    "#F7F3EC",                                       
+      29 -  red:        "#B83232",                                       
+      30 -  silver:     "#8C8C8C",                                       
+      31 -  rowAlt:     "#FDFBF7",                                       
+      20 +  azure:      "#003C80",   // Dark Azure — primary             
+      21 +  azureDark:  "#002660",   // deeper azure for gradient        
+      22 +  azureMid:   "#004499",   // mid azure for hover states       
+      23 +  red:        "#F1373D",   // Shiny Red — accent               
+      24 +  redDark:    "#C42D32",   // darker red for over-par scores   
+      25 +  white:      "#FFFFFF",   // Full White                       
+      26 +  pageBg:     "#EEF2FA",   // very light azure tint — page back
+         +ground                                                         
+      27 +  border:     "#D0DBEE",   // light blue border                
+      28 +  rowAlt:     "#F5F8FD",   // subtle alternate row             
+      29 +  silver:     "#7A8CA8",   // blue-grey muted text             
+      30 +  textDark:   "#0D1F3C",   // near-black for body text         
+      31 +  scoreUnder: "#0055C8",   // bright azure for under-par       
+      32  };
+      33  
+      34 -// ─── Keyframe injection (loading animation) ─────────────────
+         -──────────────────                                             
+      34 +// ─── Keyframe injection ─────────────────────────────────────
+         +───────────────────                                            
+      35  const KEYFRAMES = `
+      36    @keyframes pulse {
+      37      0%, 100% { opacity: 1;   transform: scale(1);    }
+     ...
+      45      to { transform: rotate(360deg); }
+      46    }
+      47    .lb-row { animation: fadein 0.3s ease both; }
+      48 -  .lb-row:hover { background-color: #F5F0E8 !important; }      
+      48 +  .lb-row:hover { background-color: #E8EFF9 !important; }      
+      49    .refresh-btn:hover { background-color: rgba(255,255,255,0.25)
+           !important; }
+      50    .refresh-btn:active { transform: scale(0.93); }
+      51    .refresh-btn.spinning svg { animation: spin 0.7s linear infin
+          ite; }
+     ...
+      63  }
+      64  
+      65  function weatherIcon(id) {
+      66 -  if (!id)              return "🌤";                            
+      66 +  if (!id)                   return "🌤";                       
+      67    if (id >= 200 && id < 300) return "⛈";
+      68    if (id >= 300 && id < 400) return "🌦";
+      69    if (id >= 500 && id < 600) return "🌧";
+      70    if (id >= 600 && id < 700) return "❄️";
+      71    if (id >= 700 && id < 800) return "🌫";
+      72 -  if (id === 800)        return "☀️";                          
+      72 +  if (id === 800)             return "☀️";                     
+      73    return "⛅";
+      74  }
+      75  
+     ...
+       95  function Card({ title, subtitle, accent, children, onRefresh, 
+           refreshing }) {
+       96    return (
+       97      <div style={S.card}>
+       98 -      {/* Colored top accent bar */}                          
+       99 -      <div style={{ height: 4, backgroundColor: accent || C.ye
+          -llow }} />                                                    
+       98 +      <div style={{ height: 4, backgroundColor: accent || C.re
+          +d }} />                                                       
+       99        <div style={S.cardHead}>
+      100          <div>
+      101            <h2 style={S.cardTitle}>{title}</h2>
+     ...
+      114      width: 8,
+      115      height: 8,
+      116      borderRadius: "50%",
+      118 -    backgroundColor: C.green,                                 
+      117 +    backgroundColor: C.azure,                                 
+      118      margin: "0 4px",
+      119      animation: `pulse 1.2s ease-in-out ${delay}s infinite`,
+      120    });
+     ...
+      136    );
+      137  }
+      138  
+      140 -// Score displayed as a colored pill                          
+      139  function ScorePill({ score }) {
+      140    if (score === null || score === undefined) {
+      143 -    return <span style={{ ...S.pill, backgroundColor: "#E0E0E0
+          -", color: C.silver }}>–</span>;                               
+      141 +    return <span style={{ ...S.pill, backgroundColor: "#D8E2EF
+          +", color: C.silver }}>–</span>;                               
+      142    }
+      145 -  const bg    = score < 0 ? C.green : score > 0 ? C.red : "#64
+          -748B";                                                        
+      143 +  const bg    = score < 0 ? C.scoreUnder : score > 0 ? C.redDa
+          +rk : "#4A6080";                                               
+      144    const label = fmtScore(score);
+      145    return <span style={{ ...S.pill, backgroundColor: bg, color:
+            C.white }}>{label}</span>;
+      146  }
+      147  
+      150 -// Position badge — gold/silver/bronze for top 3, plain for re
+          -st                                                            
+      148  function PosBadge({ position }) {
+      149    const medal = position === 1 ? { bg: "#C9963A", color: C.whi
+           te }
+      150                : position === 2 ? { bg: "#9E9E9E", color: C.whi
+           te }
+     ...
+      174      <div style={{ overflowX: "auto" }}>
+      175        <table style={S.table}>
+      176          <thead>
+      180 -          <tr style={{ backgroundColor: C.khakiLight }}>      
+      177 +          <tr style={{ backgroundColor: "#E4ECF7" }}>         
+      178              <th style={{ ...S.th, width: 52 }}>Pos</th>
+      179              <th style={S.th}>Player</th>
+      180              <th style={{ ...S.th, textAlign: "center", width: 
+           76 }}>Total</th>
+     ...
+      191                               : p.holes_played === 0  ? "–"
+      192                               : p.holes_played;
+      193              const isLeader   = p.position === 1;
+      197 -            const rowBg      = isLeader ? "#FFFBEF" : i % 2 ==
+          -= 0 ? C.white : C.rowAlt;                                     
+      194 +            const rowBg      = isLeader ? "#EAF0FB" : i % 2 ==
+          += 0 ? C.white : C.rowAlt;                                     
+      195  
+      196              return (
+      197                <tr
+     ...
+      247  
+      248    return (
+      249      <div style={S.weatherBody}>
+      253 -                                                              
+      254 -      {/* Hero row */}                                        
+      250        <div style={S.weatherHero}>
+      251          <div style={S.weatherEmoji}>{data.icon}</div>
+      252          <div style={S.weatherInfo}>
+      253            <div style={S.weatherTemp}>{data.temp}</div>
+      254            <div style={S.weatherDesc}>{data.description}</div>
+      260 -          <div style={S.weatherLoc}>📍 Augusta, GA &nbsp;·&nbs
+          -p; Live</div>                                                 
+      255 +          <div style={S.weatherLoc}>📍 Charlotte, NC &nbsp;·&n
+          +bsp; Live</div>                                               
+      256          </div>
+      257        </div>
+      263 -                                                              
+      264 -      {/* Divider */}                                         
+      258        <div style={S.divider} />
+      266 -                                                              
+      267 -      {/* Stat tiles */}                                      
+      259        <div style={S.statGrid}>
+      260          {stats.map(({ icon, label, value }) => (
+      261            <div key={label} style={S.statTile}>
+     ...
+      358        {/* ── Header ── */}
+      359        <header style={S.header}>
+      360          <div style={S.headerInner}>
+      370 -          <p style={S.headerEyebrow}>Augusta National Golf Clu
+          -b</p>                                                         
+      371 -          <h1 style={S.headerTitle}>The Masters Live Dashboard
+          -</h1>                                                         
+      372 -          <p style={S.headerYear}>April 2026</p>              
+      361 +          <p style={S.headerEyebrow}>Quail Hollow Club · Charl
+          +otte, NC</p>                                                  
+      362 +          <h1 style={S.headerTitle}>PGA Golf Live Leaderboard<
+          +/h1>                                                          
+      363 +          <p style={S.headerYear}>May 2026</p>                
+      364            <span style={S.liveBadge}>
+      365              <span style={S.liveDot} />
+      366              Live
+     ...
+      374          <Card
+      375            title={tournament ? tournament.name : "Leaderboard"}
+      376            subtitle={roundLabel}
+      386 -          accent={C.yellow}                                   
+      377 +          accent={C.red}                                      
+      378            onRefresh={refresh}
+      379            refreshing={boardLoading}
+      380          >
+     ...
+      388          <div style={S.sidebar}>
+      389            <Card
+      390              title="Course Weather"
+      400 -            accent={C.azalea}                                 
+      391 +            accent={C.red}                                    
+      392              onRefresh={refresh}
+      393              refreshing={weatherLoading}
+      394            >
+     ...
+      403        </main>
+      404  
+      405        <footer style={S.footer}>
+      415 -        <span>Augusta National Golf Club</span>               
+      406 +        <span>Quail Hollow Club</span>                        
+      407          <span style={S.footerDot}>·</span>
+      408          <span>Weather by OpenWeather</span>
+      409          <span style={S.footerDot}>·</span>
+     ...
+      418  const S = {
+      419    page: {
+      420      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI'
+           , sans-serif",
+      430 -    backgroundColor: C.khakiBg,                               
+      421 +    backgroundColor: C.pageBg,                                
+      422      minHeight: "100vh",
+      432 -    color: C.blue,                                            
+      423 +    color: C.textDark,                                        
+      424    },
+      425  
+      426    // Header
+      427    header: {
+      437 -    background: `linear-gradient(160deg, ${C.greenDark} 0%, ${
+          -C.green} 100%)`,                                              
+      438 -    borderBottom: `5px solid ${C.yellow}`,                    
+      428 +    background: `linear-gradient(160deg, ${C.azureDark} 0%, ${
+          +C.azure} 100%)`,                                              
+      429 +    borderBottom: `5px solid ${C.red}`,                       
+      430      padding: "40px 20px 32px",
+      431      textAlign: "center",
+      432    },
+     ...
+      440      fontWeight: 600,
+      441      letterSpacing: "0.2em",
+      442      textTransform: "uppercase",
+      452 -    color: C.khaki,                                           
+      443 +    color: "rgba(255,255,255,0.55)",                          
+      444    },
+      445    headerTitle: {
+      446      margin: 0,
+     ...
+      454    headerYear: {
+      455      margin: "8px 0 16px",
+      456      fontSize: "0.9rem",
+      466 -    color: "rgba(255,255,255,0.6)",                           
+      457 +    color: "rgba(255,255,255,0.5)",                           
+      458      letterSpacing: "0.06em",
+      459    },
+      460    liveBadge: {
+     ...
+      462      alignItems: "center",
+      463      gap: 6,
+      464      backgroundColor: "rgba(255,255,255,0.15)",
+      474 -    border: `1px solid rgba(255,255,255,0.3)`,                
+      465 +    border: "1px solid rgba(255,255,255,0.3)",                
+      466      color: C.white,
+      467      fontSize: "0.72rem",
+      468      fontWeight: 700,
+     ...
+      475      width: 7,
+      476      height: 7,
+      477      borderRadius: "50%",
+      487 -    backgroundColor: C.yellow,                                
+      478 +    backgroundColor: C.red,                                   
+      479      display: "inline-block",
+      480      animation: "pulse 1.5s ease-in-out infinite",
+      481    },
+     ...
+      500    card: {
+      501      backgroundColor: C.white,
+      502      borderRadius: 12,
+      512 -    boxShadow: "0 4px 6px rgba(0,0,0,0.05), 0 10px 30px rgba(0
+          -,0,0,0.08)",                                                  
+      503 +    boxShadow: "0 4px 6px rgba(0,60,128,0.06), 0 10px 30px rgb
+          +a(0,60,128,0.10)",                                            
+      504      overflow: "hidden",
+      514 -    border: `1px solid rgba(0,0,0,0.06)`,                     
+      505 +    border: `1px solid ${C.border}`,                          
+      506    },
+      507    cardHead: {
+      517 -    backgroundColor: C.green,                                 
+      508 +    backgroundColor: C.azure,                                 
+      509      padding: "14px 20px",
+      510      display: "flex",
+      511      alignItems: "center",
+     ...
+      581      textTransform: "uppercase",
+      582      letterSpacing: "0.1em",
+      583      color: C.silver,
+      593 -    borderBottom: `2px solid ${C.khakiLight}`,                
+      584 +    borderBottom: `2px solid ${C.border}`,                    
+      585      whiteSpace: "nowrap",
+      586    },
+      587    row: {
+      597 -    borderBottom: `1px solid ${C.khakiLight}`,                
+      588 +    borderBottom: `1px solid ${C.border}`,                    
+      589      transition: "background 0.15s",
+      590    },
+      591    td: {
+     ...
+      609      display: "inline-block",
+      610      fontSize: "0.88rem",
+      611      fontWeight: 700,
+      621 -    color: C.green,                                           
+      612 +    color: C.azure,                                           
+      613      width: 26,
+      614      textAlign: "center",
+      615    },
+     ...
+      629    // Player
+      630    playerName: {
+      631      fontWeight: 600,
+      641 -    color: C.blue,                                            
+      632 +    color: C.textDark,                                        
+      633      fontSize: "0.93rem",
+      634    },
+      635    playerSub: {
+      636      fontSize: "0.72rem",
+      646 -    color: C.khaki,                                           
+      637 +    color: C.silver,                                          
+      638      marginTop: 2,
+      639      fontWeight: 500,
+      640      letterSpacing: "0.04em",
+     ...
+      642  
+      643    // Cut bar
+      644    cutBar: {
+      654 -    backgroundColor: C.azalea,                                
+      645 +    backgroundColor: C.red,                                   
+      646      textAlign: "center",
+      647      padding: "7px 16px",
+      648      fontSize: "0.72rem",
+      649      fontWeight: 700,
+      650      letterSpacing: "0.1em",
+      651      textTransform: "uppercase",
+      661 -    color: C.blue,                                            
+      652 +    color: C.white,                                           
+      653    },
+      654  
+      655    // Weather
+     ...
+      673    weatherTemp: {
+      674      fontSize: "3rem",
+      675      fontWeight: 700,
+      685 -    color: C.blue,                                            
+      676 +    color: C.azure,                                           
+      677      lineHeight: 1,
+      678      fontFamily: "Georgia, serif",
+      679    },
+      680    weatherDesc: {
+      681      fontSize: "1rem",
+      691 -    color: C.green,                                           
+      682 +    color: C.azure,                                           
+      683      marginTop: 4,
+      684      fontStyle: "italic",
+      685      fontFamily: "Georgia, serif",
+      686 +    opacity: 0.75,                                            
+      687    },
+      688    weatherLoc: {
+      689      fontSize: "0.72rem",
+      698 -    color: C.khaki,                                           
+      690 +    color: C.silver,                                          
+      691      textTransform: "uppercase",
+      692      letterSpacing: "0.1em",
+      693      marginTop: 6,
+     ...
+      695    },
+      696    divider: {
+      697      height: 1,
+      706 -    backgroundColor: C.khakiLight,                            
+      698 +    backgroundColor: C.border,                                
+      699      margin: "20px 0",
+      700    },
+      701    statGrid: {
+     ...
+      704      gap: 10,
+      705    },
+      706    statTile: {
+      715 -    backgroundColor: C.khakiBg,                               
+      716 -    border: `1px solid ${C.khakiLight}`,                      
+      707 +    backgroundColor: C.pageBg,                                
+      708 +    border: `1px solid ${C.border}`,                          
+      709      borderRadius: 10,
+      710      padding: "14px 10px",
+      711      textAlign: "center",
+     ...
+      718    statValue: {
+      719      fontSize: "1rem",
+      720      fontWeight: 700,
+      729 -    color: C.blue,                                            
+      721 +    color: C.azure,                                           
+      722      lineHeight: 1,
+      723      marginBottom: 4,
+      724    },
+     ...
+      726      fontSize: "0.65rem",
+      727      textTransform: "uppercase",
+      728      letterSpacing: "0.1em",
+      737 -    color: C.khaki,                                           
+      729 +    color: C.silver,                                          
+      730      fontWeight: 600,
+      731    },
+      732  
+      733    // Footer
+      734    footer: {
+      743 -    backgroundColor: C.greenDark,                             
+      735 +    backgroundColor: C.azureDark,                             
+      736      color: "rgba(255,255,255,0.5)",
+      737      textAlign: "center",
+      738      padding: "16px 20px",
+     ...
+      745      gap: "0 10px",
+      746    },
+      747    footerDot: {
+      756 -    color: C.yellow,                                          
+      748 +    color: C.red,                                             
+      749      fontWeight: "bold",
+      750    },
+      751  };
+
+● Bash(cd "C:/Users/kpols/OneDrive/UCF/DIG4503 Spring 2026/Week 12" && git add
+      src/MastersDashboard.jsx && git commit -m "$(cat <<'EOF'
+      Rebrand to PGA Golf Live Leader…)
+  ⎿  warning: in the working copy of 'src/MastersDashboard.jsx', LF will be
+      replaced by CRLF the next time Git touches it
+     [main 7391b82] Rebrand to PGA Golf Live Leaderboard with Dark Azure/Wh
+     … +4 lines (ctrl+o to expand)
+
+● Done and pushed. Here's a summary of every change made:
+
+  Colors
+
+  ┌───────────────────────────────┬──────────────────┬──────────────────────┐
+  │            Element            │ Before (Masters) │     After (PGA)      │
+  ├───────────────────────────────┼──────────────────┼──────────────────────┤
+  │ Header/card bg                │ #006747 green    │ #003C80 Dark Azure   │
+  ├───────────────────────────────┼──────────────────┼──────────────────────┤
+  │ Accent bars / live dot /      │ #F5D130 yellow   │ #F1373D Shiny Red    │
+  │ footer dot                    │                  │                      │
+  ├───────────────────────────────┼──────────────────┼──────────────────────┤
+  │ Cut bar                       │ #E8A0B0 azalea   │ #F1373D Shiny Red    │
+  │                               │ pink             │                      │
+  ├───────────────────────────────┼──────────────────┼──────────────────────┤
+  │ Page background               │ warm khaki       │ light azure tint     │
+  │                               │ #F7F3EC          │ #EEF2FA              │
+  ├───────────────────────────────┼──────────────────┼──────────────────────┤
+  │ Under-par pill                │ green            │ bright azure #0055C8 │
+  ├───────────────────────────────┼──────────────────┼──────────────────────┤
+  │ Over-par pill                 │ dark red #B83232 │ dark red #C42D32     │
+  └───────────────────────────────┴──────────────────┴──────────────────────┘
+
+  Text & location
+  - Header eyebrow: Augusta National Golf Club → Quail Hollow Club · Charlotte, 
+  NC
+  - Title: The Masters Live Dashboard → PGA Golf Live Leaderboard
+  - Header year: April 2026 → May 2026 (PGA Championship is May 14–17)
+  - Weather location: Augusta, GA → Charlotte, NC
+  - Footer: Augusta National Golf Club → Quail Hollow Club
+
+✻ Sautéed for 2m 9s
+
+> Ensure the website has a responsive layout, it adds streaming responses, and  
+implements caching                                                              
+
+● Write(src\MastersDashboard.jsx)
+  ⎿  Added 230 lines, removed 173 lines
+       4  const OPENWEATHER_KEY = process.env.REACT_APP_OPENWEATHER_KEY;
+       5  const RAPIDAPI_KEY    = process.env.REACT_APP_RAPIDAPI_KEY;
+       6  
+       7 -// 2026 PGA Championship — Quail Hollow Club, Charlotte, NC    
+       7  const WEATHER_URL =
+       8    `https://api.openweathermap.org/data/2.5/weather?q=Charlotte,
+          NC,US&units=imperial&appid=${OPENWEATHER_KEY}`;
+       9  
+     ...
+      14    "x-rapidapi-key": RAPIDAPI_KEY,
+      15  };
+      16  
+      17 +// ─── Cache (localStorage, 5-minute TTL) ─────────────────────
+         +──────────────────                                             
+      18 +const CACHE_TTL_MS  = 5 * 60 * 1000;                           
+      19 +const CACHE_WEATHER = "pga_weather";                           
+      20 +const CACHE_BOARD   = "pga_board";                             
+      21 +                                                               
+      22 +function cacheGet(key) {                                       
+      23 +  try {                                                        
+      24 +    const raw = localStorage.getItem(key);                     
+      25 +    if (!raw) return null;                                     
+      26 +    const { data, ts } = JSON.parse(raw);                      
+      27 +    if (Date.now() - ts > CACHE_TTL_MS) { localStorage.removeIt
+         +em(key); return null; }                                        
+      28 +    return { data, ts };                                       
+      29 +  } catch { return null; }                                     
+      30 +}                                                              
+      31 +                                                               
+      32 +function cacheSet(key, data) {                                 
+      33 +  try {                                                        
+      34 +    localStorage.setItem(key, JSON.stringify({ data, ts: Date.n
+         +ow() }));                                                      
+      35 +  } catch {} // storage unavailable — silently skip            
+      36 +}                                                              
+      37 +                                                               
+      38 +function cacheClear() {                                        
+      39 +  localStorage.removeItem(CACHE_WEATHER);                      
+      40 +  localStorage.removeItem(CACHE_BOARD);                        
+      41 +}                                                              
+      42 +                                                               
+      43 +// ─── Streaming Fetch ────────────────────────────────────────
+         +──────────────────                                             
+      44 +// Reads the response body as a ReadableStream, accumulating ch
+         +unks                                                           
+      45 +// into a string before parsing — rather than buffering the who
+         +le response.                                                   
+      46 +async function fetchStream(url, options = {}) {                
+      47 +  const res = await fetch(url, options);                       
+      48 +                                                               
+      49 +  if (res.status === 401) throw new Error("Invalid API key (401
+         +).");                                                          
+      50 +  if (res.status === 403) throw new Error("API key rejected (40
+         +3). Check your RapidAPI subscription.");                       
+      51 +  if (!res.ok)            throw new Error(`HTTP error: ${res.st
+         +atus}`);                                                       
+      52 +                                                               
+      53 +  const reader  = res.body.getReader();                        
+      54 +  const decoder = new TextDecoder();                           
+      55 +  let text = "";                                               
+      56 +                                                               
+      57 +  while (true) {                                               
+      58 +    const { done, value } = await reader.read();               
+      59 +    if (done) break;                                           
+      60 +    text += decoder.decode(value, { stream: true });           
+      61 +  }                                                            
+      62 +  text += decoder.decode(); // flush any remaining bytes       
+      63 +                                                               
+      64 +  return JSON.parse(text);                                     
+      65 +}                                                              
+      66 +                                                               
+      67  // ─── Theme ──────────────────────────────────────────────────
+          ──────────────────
+      68  const C = {
+      20 -  azure:      "#003C80",   // Dark Azure — primary             
+      21 -  azureDark:  "#002660",   // deeper azure for gradient        
+      22 -  azureMid:   "#004499",   // mid azure for hover states       
+      23 -  red:        "#F1373D",   // Shiny Red — accent               
+      24 -  redDark:    "#C42D32",   // darker red for over-par scores   
+      25 -  white:      "#FFFFFF",   // Full White                       
+      26 -  pageBg:     "#EEF2FA",   // very light azure tint — page back
+         -ground                                                         
+      27 -  border:     "#D0DBEE",   // light blue border                
+      28 -  rowAlt:     "#F5F8FD",   // subtle alternate row             
+      29 -  silver:     "#7A8CA8",   // blue-grey muted text             
+      30 -  textDark:   "#0D1F3C",   // near-black for body text         
+      31 -  scoreUnder: "#0055C8",   // bright azure for under-par       
+      69 +  azure:      "#003C80",                                       
+      70 +  azureDark:  "#002660",                                       
+      71 +  red:        "#F1373D",                                       
+      72 +  redDark:    "#C42D32",                                       
+      73 +  white:      "#FFFFFF",                                       
+      74 +  pageBg:     "#EEF2FA",                                       
+      75 +  border:     "#D0DBEE",                                       
+      76 +  rowAlt:     "#F5F8FD",                                       
+      77 +  silver:     "#7A8CA8",                                       
+      78 +  textDark:   "#0D1F3C",                                       
+      79 +  scoreUnder: "#0055C8",                                       
+      80  };
+      81  
+      34 -// ─── Keyframe injection ─────────────────────────────────────
+         -───────────────────                                            
+      35 -const KEYFRAMES = `                                            
+      82 +// ─── Global CSS (keyframes + responsive breakpoints) ────────
+         +─────────────────                                              
+      83 +const GLOBAL_CSS = `                                           
+      84 +  *, *::before, *::after { box-sizing: border-box; }           
+      85 +                                                               
+      86    @keyframes pulse {
+      87      0%, 100% { opacity: 1;   transform: scale(1);    }
+      88      50%       { opacity: 0.3; transform: scale(0.75); }
+     ...
+       94    @keyframes spin {
+       95      to { transform: rotate(360deg); }
+       96    }
+       97 +                                                              
+       98    .lb-row { animation: fadein 0.3s ease both; }
+       99    .lb-row:hover { background-color: #E8EFF9 !important; }
+      100    .refresh-btn:hover { background-color: rgba(255,255,255,0.25
+           ) !important; }
+      101    .refresh-btn:active { transform: scale(0.93); }
+      102    .refresh-btn.spinning svg { animation: spin 0.7s linear infi
+           nite; }
+      103 +                                                              
+      104 +  /* ── Responsive grid ── */                                 
+      105 +  .pga-main {                                                 
+      106 +    display: grid;                                            
+      107 +    grid-template-columns: 1fr 340px;                         
+      108 +    gap: 24px;                                                
+      109 +    align-items: start;                                       
+      110 +    max-width: 1160px;                                        
+      111 +    margin: 0 auto;                                           
+      112 +    padding: 32px 20px;                                       
+      113 +  }                                                           
+      114 +                                                              
+      115 +  @media (max-width: 960px) {                                 
+      116 +    .pga-main { grid-template-columns: 1fr; }                 
+      117 +  }                                                           
+      118 +                                                              
+      119 +  @media (max-width: 600px) {                                 
+      120 +    .pga-main    { padding: 16px 12px; gap: 16px; }           
+      121 +    .pga-header  { padding: 24px 16px 20px !important; }      
+      122 +    .hide-mobile { display: none !important; }                
+      123 +  }                                                           
+      124  `;
+      125  
+      126  // ─── Helpers ───────────────────────────────────────────────
+           ───────────────────
+     ...
+      145    return "⛅";
+      146  }
+      147  
+      148 +function timeSince(ts, now) {                                 
+      149 +  const secs = Math.floor((now - ts) / 1000);                 
+      150 +  if (secs < 60)  return `${secs}s ago`;                      
+      151 +  const mins = Math.floor(secs / 60);                         
+      152 +  if (mins < 60)  return `${mins}m ago`;                      
+      153 +  return `${Math.floor(mins / 60)}h ago`;                     
+      154 +}                                                             
+      155 +                                                              
+      156  // ─── Shared UI Primitives ──────────────────────────────────
+           ───────────────────
+      157  
+      158  function RefreshButton({ onClick, spinning }) {
+     ...
+      163        title="Refresh"
+      164        style={S.refreshBtn}
+      165      >
+       86 -      <svg width="14" height="14" viewBox="0 0 24 24" fill="no
+          -ne" stroke="currentColor" strokeWidth="2.5" strokeLinecap="rou
+          -nd" strokeLinejoin="round">                                   
+      166 +      <svg width="14" height="14" viewBox="0 0 24 24" fill="no
+          +ne" stroke="currentColor"                                     
+      167 +           strokeWidth="2.5" strokeLinecap="round" strokeLinej
+          +oin="round">                                                  
+      168          <polyline points="23 4 23 10 17 10" />
+      169          <polyline points="1 20 1 14 7 14" />
+      170          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 
+           4.36A9 9 0 0 0 20.49 15" />
+     ...
+      173    );
+      174  }
+      175  
+       95 -function Card({ title, subtitle, accent, children, onRefresh, 
+          -refreshing }) {                                               
+      176 +function CacheBar({ meta, now }) {                            
+      177 +  if (!meta) return null;                                     
+      178 +  const fromCache = meta.fromCache;                           
+      179    return (
+      180 +    <div style={S.cacheBar}>                                  
+      181 +      <span style={{ color: fromCache ? "#E8A000" : "#00A86B",
+          + fontWeight: 700 }}>                                          
+      182 +        {fromCache ? "⚡ Cached" : "🔄 Live"}                 
+      183 +      </span>                                                 
+      184 +      <span style={S.cacheDot}>·</span>                       
+      185 +      <span>Updated {timeSince(meta.ts, now)}</span>          
+      186 +    </div>                                                    
+      187 +  );                                                          
+      188 +}                                                             
+      189 +                                                              
+      190 +function Card({ title, subtitle, accent, children, onRefresh, 
+          +refreshing, meta, now }) {                                    
+      191 +  return (                                                    
+      192      <div style={S.card}>
+      193        <div style={{ height: 4, backgroundColor: accent || C.re
+           d }} />
+      194        <div style={S.cardHead}>
+     ...
+      199          {onRefresh && <RefreshButton onClick={onRefresh} spinn
+           ing={refreshing} />}
+      200        </div>
+      201        {children}
+      202 +      <CacheBar meta={meta} now={now} />                      
+      203      </div>
+      204    );
+      205  }
+      206  
+      207  function Loading() {
+      112 -  const dotStyle = (delay) => ({                              
+      113 -    display: "inline-block",                                  
+      114 -    width: 8,                                                 
+      115 -    height: 8,                                                
+      116 -    borderRadius: "50%",                                      
+      117 -    backgroundColor: C.azure,                                 
+      118 -    margin: "0 4px",                                          
+      208 +  const dot = (delay) => ({                                   
+      209 +    display: "inline-block", width: 8, height: 8, borderRadius
+          +: "50%",                                                      
+      210 +    backgroundColor: C.azure, margin: "0 4px",                
+      211      animation: `pulse 1.2s ease-in-out ${delay}s infinite`,
+      212    });
+      213    return (
+      214      <div style={S.loadingWrap}>
+      123 -      <span style={dotStyle(0)} />                            
+      124 -      <span style={dotStyle(0.2)} />                          
+      125 -      <span style={dotStyle(0.4)} />                          
+      215 +      <span style={dot(0)} /><span style={dot(0.2)} /><span st
+          +yle={dot(0.4)} />                                             
+      216      </div>
+      217    );
+      218  }
+     ...
+      230    if (score === null || score === undefined) {
+      231      return <span style={{ ...S.pill, backgroundColor: "#D8E2EF
+           ", color: C.silver }}>–</span>;
+      232    }
+      143 -  const bg    = score < 0 ? C.scoreUnder : score > 0 ? C.redDa
+          -rk : "#4A6080";                                               
+      144 -  const label = fmtScore(score);                              
+      145 -  return <span style={{ ...S.pill, backgroundColor: bg, color:
+          - C.white }}>{label}</span>;                                   
+      233 +  const bg = score < 0 ? C.scoreUnder : score > 0 ? C.redDark 
+          +: "#4A6080";                                                  
+      234 +  return <span style={{ ...S.pill, backgroundColor: bg, color:
+          + C.white }}>{fmtScore(score)}</span>;                         
+      235  }
+      236  
+      237  function PosBadge({ position }) {
+      149 -  const medal = position === 1 ? { bg: "#C9963A", color: C.whi
+          -te }                                                          
+      150 -              : position === 2 ? { bg: "#9E9E9E", color: C.whi
+          -te }                                                          
+      151 -              : position === 3 ? { bg: "#A0744C", color: C.whi
+          -te }                                                          
+      238 +  const medal = position === 1 ? { bg: "#C9963A" }            
+      239 +              : position === 2 ? { bg: "#9E9E9E" }            
+      240 +              : position === 3 ? { bg: "#A0744C" }            
+      241                : null;
+      153 -                                                              
+      242    if (medal) {
+      243      return (
+      156 -      <span style={{ ...S.posBadge, backgroundColor: medal.bg,
+          - color: medal.color }}>                                       
+      244 +      <span style={{ ...S.posBadge, backgroundColor: medal.bg,
+          + color: C.white }}>                                           
+      245          {position}
+      246        </span>
+      247      );
+     ...
+      266              <th style={{ ...S.th, width: 52 }}>Pos</th>
+      267              <th style={S.th}>Player</th>
+      268              <th style={{ ...S.th, textAlign: "center", width: 
+           76 }}>Total</th>
+      181 -            <th style={{ ...S.th, textAlign: "center", width: 
+          -76 }}>Today</th>                                              
+      182 -            <th style={{ ...S.th, textAlign: "center", width: 
+          -60 }}>Thru</th>                                               
+      269 +            <th className="hide-mobile" style={{ ...S.th, text
+          +Align: "center", width: 76 }}>Today</th>                      
+      270 +            <th className="hide-mobile" style={{ ...S.th, text
+          +Align: "center", width: 60 }}>Thru</th>                       
+      271            </tr>
+      272          </thead>
+      273          <tbody>
+     ...
+      278              const thru       = p.holes_played === 18 ? "F"
+      279                               : p.holes_played === 0  ? "–"
+      280                               : p.holes_played;
+      193 -            const isLeader   = p.position === 1;              
+      194 -            const rowBg      = isLeader ? "#EAF0FB" : i % 2 ==
+          -= 0 ? C.white : C.rowAlt;                                     
+      195 -                                                              
+      281 +            const rowBg      = p.position === 1 ? "#EAF0FB"   
+      282 +                             : i % 2 === 0      ? C.white     
+      283 +                             : C.rowAlt;                      
+      284              return (
+      285                <tr
+      286                  key={p.player_id}
+     ...
+      297                  <td style={{ ...S.td, textAlign: "center" }}>
+      298                    <ScorePill score={total} />
+      299                  </td>
+      212 -                <td style={{ ...S.td, textAlign: "center", opa
+          -city: 0.85 }}>                                                
+      300 +                <td className="hide-mobile" style={{ ...S.td, 
+          +textAlign: "center", opacity: 0.85 }}>                        
+      301                    <ScorePill score={today} />
+      302                  </td>
+      215 -                <td style={{ ...S.td, textAlign: "center", col
+          -or: C.silver, fontSize: "0.85rem", fontWeight: 600 }}>        
+      303 +                <td className="hide-mobile" style={{ ...S.td, 
+          +textAlign: "center", color: C.silver, fontSize: "0.85rem", fon
+          +tWeight: 600 }}>                                              
+      304                    {thru}
+      305                  </td>
+      306                </tr>
+     ...
+      364    const [weather,        setWeather]        = useState(null);
+      365    const [weatherLoading, setWeatherLoading] = useState(true);
+      366    const [weatherError,   setWeatherError]   = useState(null);
+      367 +  const [weatherMeta,    setWeatherMeta]    = useState(null); 
+      368  
+      369    const [leaderboard,  setLeaderboard]  = useState([]);
+      370    const [tournament,   setTournament]   = useState(null);
+      371    const [boardLoading, setBoardLoading] = useState(true);
+      372    const [boardError,   setBoardError]   = useState(null);
+      373 +  const [boardMeta,    setBoardMeta]    = useState(null);     
+      374  
+      375    const [refreshCount, setRefreshCount] = useState(0);
+      376 +  const [now,          setNow]          = useState(Date.now())
+          +;                                                             
+      377  
+      287 -  function refresh() {                                        
+      378 +  // Tick every 30 s so "X min ago" labels stay current       
+      379 +  useEffect(() => {                                           
+      380 +    const id = setInterval(() => setNow(Date.now()), 30_000); 
+      381 +    return () => clearInterval(id);                           
+      382 +  }, []);                                                     
+      383 +                                                              
+      384 +  // Clears the cache and triggers a fresh fetch for both sect
+          +ions                                                          
+      385 +  function handleRefresh() {                                  
+      386 +    cacheClear();                                             
+      387      setWeatherLoading(true);
+      388      setWeatherError(null);
+      389      setBoardLoading(true);
+     ...
+      393  
+      394    useEffect(() => {
+      395  
+      297 -    // 1. Weather                                             
+      396 +    // ── 1. Weather ─────────────────────────────────────────
+          +───────────────────                                           
+      397      if (!OPENWEATHER_KEY) {
+      398        setWeatherError("REACT_APP_OPENWEATHER_KEY is not set. A
+           dd it to .env or the Netlify dashboard.");
+      399        setWeatherLoading(false);
+      400      } else {
+      302 -      fetch(WEATHER_URL)                                      
+      303 -        .then((res) => {                                      
+      304 -          if (res.status === 401) throw new Error("Invalid Ope
+          -nWeather API key (401).");                                    
+      305 -          if (!res.ok)            throw new Error(`Weather API
+          - error: ${res.status}`);                                      
+      306 -          return res.json();                                  
+      307 -        })                                                    
+      308 -        .then((d) => {                                        
+      309 -          setWeather({                                        
+      310 -            temp:        `${Math.round(d.main.temp)}°F`,      
+      311 -            feelsLike:   `${Math.round(d.main.feels_like)}°F`,
+      312 -            humidity:    `${d.main.humidity}%`,               
+      313 -            wind:        `${Math.round(d.wind.speed)} mph`,   
+      314 -            description: d.weather[0].description             
+      315 -              .split(" ").map((w) => w[0].toUpperCase() + w.sl
+          -ice(1)).join(" "),                                            
+      316 -            icon: weatherIcon(d.weather[0].id),               
+      317 -          });                                                 
+      318 -        })                                                    
+      319 -        .catch((e) => setWeatherError(e.message))             
+      320 -        .finally(() => setWeatherLoading(false));             
+      401 +      const cached = cacheGet(CACHE_WEATHER);                 
+      402 +      if (cached) {                                           
+      403 +        setWeather(cached.data);                              
+      404 +        setWeatherMeta({ ts: cached.ts, fromCache: true });   
+      405 +        setWeatherLoading(false);                             
+      406 +      } else {                                                
+      407 +        fetchStream(WEATHER_URL)                              
+      408 +          .then((d) => {                                      
+      409 +            const parsed = {                                  
+      410 +              temp:        `${Math.round(d.main.temp)}°F`,    
+      411 +              feelsLike:   `${Math.round(d.main.feels_like)}°F
+          +`,                                                            
+      412 +              humidity:    `${d.main.humidity}%`,             
+      413 +              wind:        `${Math.round(d.wind.speed)} mph`, 
+      414 +              description: d.weather[0].description           
+      415 +                .split(" ").map((w) => w[0].toUpperCase() + w.
+          +slice(1)).join(" "),                                          
+      416 +              icon: weatherIcon(d.weather[0].id),             
+      417 +            };                                                
+      418 +            setWeather(parsed);                               
+      419 +            cacheSet(CACHE_WEATHER, parsed);                  
+      420 +            setWeatherMeta({ ts: Date.now(), fromCache: false 
+          +});                                                           
+      421 +          })                                                  
+      422 +          .catch((e) => setWeatherError(e.message))           
+      423 +          .finally(() => setWeatherLoading(false));           
+      424 +      }                                                       
+      425      }
+      426  
+      323 -    // 2. Golf leaderboard                                    
+      427 +    // ── 2. Golf leaderboard ────────────────────────────────
+          +───────────────────                                           
+      428      if (!RAPIDAPI_KEY) {
+      429        setBoardError("REACT_APP_RAPIDAPI_KEY is not set. Add it
+            to .env or the Netlify dashboard.");
+      430        setBoardLoading(false);
+      431      } else {
+      328 -      fetch(GOLF_URL, { method: "GET", headers: RAPIDAPI_HEADE
+          -RS })                                                         
+      329 -        .then((res) => {                                      
+      330 -          if (res.status === 403) throw new Error("RapidAPI ke
+          -y rejected (403). Confirm your Golf Leaderboard subscription a
+          -t rapidapi.com.");                                            
+      331 -          if (res.status === 401) throw new Error("RapidAPI ke
+          -y invalid (401).");                                           
+      332 -          if (!res.ok)            throw new Error(`Golf API er
+          -ror: ${res.status}`);                                         
+      333 -          return res.json();                                  
+      334 -        })                                                    
+      335 -        .then((d) => {                                        
+      336 -          setTournament(d.results.tournament);                
+      337 -          setLeaderboard(d.results.leaderboard);              
+      338 -        })                                                    
+      339 -        .catch((e) => setBoardError(e.message))               
+      340 -        .finally(() => setBoardLoading(false));               
+      432 +      const cached = cacheGet(CACHE_BOARD);                   
+      433 +      if (cached) {                                           
+      434 +        setTournament(cached.data.tournament);                
+      435 +        setLeaderboard(cached.data.leaderboard);              
+      436 +        setBoardMeta({ ts: cached.ts, fromCache: true });     
+      437 +        setBoardLoading(false);                               
+      438 +      } else {                                                
+      439 +        fetchStream(GOLF_URL, { method: "GET", headers: RAPIDA
+          +PI_HEADERS })                                                 
+      440 +          .then((d) => {                                      
+      441 +            setTournament(d.results.tournament);              
+      442 +            setLeaderboard(d.results.leaderboard);            
+      443 +            cacheSet(CACHE_BOARD, {                           
+      444 +              tournament: d.results.tournament,               
+      445 +              leaderboard: d.results.leaderboard,             
+      446 +            });                                               
+      447 +            setBoardMeta({ ts: Date.now(), fromCache: false })
+          +;                                                             
+      448 +          })                                                  
+      449 +          .catch((e) => setBoardError(e.message))             
+      450 +          .finally(() => setBoardLoading(false));             
+      451 +      }                                                       
+      452      }
+      453  
+      454    // eslint-disable-next-line react-hooks/exhaustive-deps
+     ...
+      464  
+      465    return (
+      466      <div style={S.page}>
+      356 -      <style>{KEYFRAMES}</style>                              
+      467 +      <style>{GLOBAL_CSS}</style>                             
+      468  
+      469        {/* ── Header ── */}
+      359 -      <header style={S.header}>                               
+      470 +      <header className="pga-header" style={S.header}>        
+      471          <div style={S.headerInner}>
+      472            <p style={S.headerEyebrow}>Quail Hollow Club · Charl
+           otte, NC</p>
+      473            <h1 style={S.headerTitle}>PGA Golf Live Leaderboard<
+           /h1>
+     ...
+      480        </header>
+      481  
+      482        {/* ── Body ── */}
+      372 -      <main style={S.main}>                                   
+      483 +      <main className="pga-main">                             
+      484  
+      485          <Card
+      486            title={tournament ? tournament.name : "Leaderboard"}
+      487            subtitle={roundLabel}
+      488            accent={C.red}
+      378 -          onRefresh={refresh}                                 
+      489 +          onRefresh={handleRefresh}                           
+      490            refreshing={boardLoading}
+      491 +          meta={boardMeta}                                    
+      492 +          now={now}                                           
+      493          >
+      494            <LeaderboardSection
+      495              data={leaderboard}
+     ...
+      502            <Card
+      503              title="Course Weather"
+      504              accent={C.red}
+      392 -            onRefresh={refresh}                               
+      505 +            onRefresh={handleRefresh}                         
+      506              refreshing={weatherLoading}
+      507 +            meta={weatherMeta}                                
+      508 +            now={now}                                         
+      509            >
+      510              <WeatherSection
+      511                data={weather}
+     ...
+      545      padding: "40px 20px 32px",
+      546      textAlign: "center",
+      547    },
+      433 -  headerInner: {                                              
+      434 -    maxWidth: 700,                                            
+      435 -    margin: "0 auto",                                         
+      436 -  },                                                          
+      548 +  headerInner: { maxWidth: 700, margin: "0 auto" },           
+      549    headerEyebrow: {
+      550      margin: "0 0 8px",
+      551      fontSize: "0.75rem",
+     ...
+      557    headerTitle: {
+      558      margin: 0,
+      559      fontFamily: "Georgia, serif",
+      448 -    fontSize: "clamp(1.6rem, 4vw, 2.6rem)",                   
+      560 +    fontSize: "clamp(1.4rem, 4vw, 2.6rem)",                   
+      561      fontWeight: "bold",
+      562      letterSpacing: "0.03em",
+      563      color: C.white,
+     ...
+      592      animation: "pulse 1.5s ease-in-out infinite",
+      593    },
+      594  
+      483 -  // Layout                                                   
+      484 -  main: {                                                     
+      485 -    maxWidth: 1160,                                           
+      486 -    margin: "0 auto",                                         
+      487 -    padding: "32px 20px",                                     
+      488 -    display: "grid",                                          
+      489 -    gridTemplateColumns: "1fr 340px",                         
+      490 -    gap: 24,                                                  
+      491 -    alignItems: "start",                                      
+      492 -  },                                                          
+      493 -  sidebar: {                                                  
+      494 -    display: "flex",                                          
+      495 -    flexDirection: "column",                                  
+      496 -    gap: 24,                                                  
+      497 -  },                                                          
+      595 +  // Layout — non-responsive properties only; grid columns han
+          +dled by .pga-main CSS class                                   
+      596 +  sidebar: { display: "flex", flexDirection: "column", gap: 24
+          + },                                                           
+      597  
+      598    // Card
+      599    card: {
+     ...
+      639      flexShrink: 0,
+      640    },
+      641  
+      642 +  // Cache bar                                                
+      643 +  cacheBar: {                                                 
+      644 +    display: "flex",                                          
+      645 +    alignItems: "center",                                     
+      646 +    gap: 6,                                                   
+      647 +    padding: "7px 16px",                                      
+      648 +    fontSize: "0.7rem",                                       
+      649 +    color: C.silver,                                          
+      650 +    backgroundColor: C.pageBg,                                
+      651 +    borderTop: `1px solid ${C.border}`,                       
+      652 +    letterSpacing: "0.03em",                                  
+      653 +  },                                                          
+      654 +  cacheDot: { color: C.border, fontWeight: "bold" },          
+      655 +                                                              
+      656    // Loading
+      657    loadingWrap: {
+      658      display: "flex",
+     ...
+      670      padding: "32px 24px",
+      671      gap: 10,
+      672    },
+      560 -  errIcon: {                                                  
+      561 -    fontSize: "1.6rem",                                       
+      562 -  },                                                          
+      673 +  errIcon: { fontSize: "1.6rem" },                            
+      674    errText: {
+      675      color: C.red,
+      676      fontSize: "0.85rem",
+     ...
+      680    },
+      681  
+      682    // Table
+      572 -  table: {                                                    
+      573 -    width: "100%",                                            
+      574 -    borderCollapse: "collapse",                               
+      575 -  },                                                          
+      683 +  table: { width: "100%", borderCollapse: "collapse" },       
+      684    th: {
+      685      padding: "10px 14px",
+      686      textAlign: "left",
+     ...
+      692      borderBottom: `2px solid ${C.border}`,
+      693      whiteSpace: "nowrap",
+      694    },
+      587 -  row: {                                                      
+      588 -    borderBottom: `1px solid ${C.border}`,                    
+      589 -    transition: "background 0.15s",                           
+      590 -  },                                                          
+      591 -  td: {                                                       
+      592 -    padding: "12px 14px",                                     
+      593 -    fontSize: "0.93rem",                                      
+      594 -    verticalAlign: "middle",                                  
+      595 -  },                                                          
+      695 +  row: { borderBottom: `1px solid ${C.border}`, transition: "b
+          +ackground 0.15s" },                                           
+      696 +  td:  { padding: "12px 14px", fontSize: "0.93rem", verticalAl
+          +ign: "middle" },                                              
+      697  
+      698    // Position badges
+      699    posBadge: {
+     ...
+      728    },
+      729  
+      730    // Player
+      630 -  playerName: {                                               
+      631 -    fontWeight: 600,                                          
+      632 -    color: C.textDark,                                        
+      633 -    fontSize: "0.93rem",                                      
+      634 -  },                                                          
+      635 -  playerSub: {                                                
+      636 -    fontSize: "0.72rem",                                      
+      637 -    color: C.silver,                                          
+      638 -    marginTop: 2,                                             
+      639 -    fontWeight: 500,                                          
+      640 -    letterSpacing: "0.04em",                                  
+      641 -  },                                                          
+      731 +  playerName: { fontWeight: 600, color: C.textDark, fontSize: 
+          +"0.93rem" },                                                  
+      732 +  playerSub:  { fontSize: "0.72rem", color: C.silver, marginTo
+          +p: 2, fontWeight: 500, letterSpacing: "0.04em" },             
+      733  
+      734    // Cut bar
+      735    cutBar: {
+     ...
+      744    },
+      745  
+      746    // Weather
+      656 -  weatherBody: {                                              
+      657 -    padding: "24px 20px 20px",                                
+      658 -  },                                                          
+      659 -  weatherHero: {                                              
+      660 -    display: "flex",                                          
+      661 -    alignItems: "center",                                     
+      662 -    gap: 20,                                                  
+      663 -    marginBottom: 4,                                          
+      664 -  },                                                          
+      665 -  weatherEmoji: {                                             
+      666 -    fontSize: "4rem",                                         
+      667 -    lineHeight: 1,                                            
+      668 -    flexShrink: 0,                                            
+      669 -  },                                                          
+      670 -  weatherInfo: {                                              
+      671 -    flex: 1,                                                  
+      672 -  },                                                          
+      747 +  weatherBody:  { padding: "24px 20px 20px" },                
+      748 +  weatherHero:  { display: "flex", alignItems: "center", gap: 
+          +20, marginBottom: 4 },                                        
+      749 +  weatherEmoji: { fontSize: "4rem", lineHeight: 1, flexShrink:
+          + 0 },                                                         
+      750 +  weatherInfo:  { flex: 1 },                                  
+      751    weatherTemp: {
+      752      fontSize: "3rem",
+      753      fontWeight: 700,
+     ...
+      771      marginTop: 6,
+      772      fontWeight: 600,
+      773    },
+      696 -  divider: {                                                  
+      697 -    height: 1,                                                
+      698 -    backgroundColor: C.border,                                
+      699 -    margin: "20px 0",                                         
+      700 -  },                                                          
+      701 -  statGrid: {                                                 
+      702 -    display: "grid",                                          
+      703 -    gridTemplateColumns: "repeat(3, 1fr)",                    
+      704 -    gap: 10,                                                  
+      705 -  },                                                          
+      774 +  divider:  { height: 1, backgroundColor: C.border, margin: "2
+          +0px 0" },                                                     
+      775 +  statGrid: { display: "grid", gridTemplateColumns: "repeat(3,
+          + 1fr)", gap: 10 },                                            
+      776    statTile: {
+      777      backgroundColor: C.pageBg,
+      778      border: `1px solid ${C.border}`,
+     ...
+      780      padding: "14px 10px",
+      781      textAlign: "center",
+      782    },
+      713 -  statIcon: {                                                 
+      714 -    fontSize: "1.3rem",                                       
+      715 -    marginBottom: 6,                                          
+      716 -    lineHeight: 1,                                            
+      717 -  },                                                          
+      718 -  statValue: {                                                
+      719 -    fontSize: "1rem",                                         
+      720 -    fontWeight: 700,                                          
+      721 -    color: C.azure,                                           
+      722 -    lineHeight: 1,                                            
+      723 -    marginBottom: 4,                                          
+      724 -  },                                                          
+      783 +  statIcon:  { fontSize: "1.3rem", marginBottom: 6, lineHeight
+          +: 1 },                                                        
+      784 +  statValue: { fontSize: "1rem", fontWeight: 700, color: C.azu
+          +re, lineHeight: 1, marginBottom: 4 },                         
+      785    statLabel: {
+      786      fontSize: "0.65rem",
+      787      textTransform: "uppercase",
+     ...
+      804      flexWrap: "wrap",
+      805      gap: "0 10px",
+      806    },
+      747 -  footerDot: {                                                
+      748 -    color: C.red,                                             
+      749 -    fontWeight: "bold",                                       
+      750 -  },                                                          
+      807 +  footerDot: { color: C.red, fontWeight: "bold" },            
+      808  };
+
+● Bash(cd "C:/Users/kpols/OneDrive/UCF/DIG4503 Spring 2026/Week 12" && git add
+      src/MastersDashboard.jsx && git commit -m "$(cat <<'EOF'
+      Add responsive layout, streamin…)
+  ⎿  warning: in the working copy of 'src/MastersDashboard.jsx', LF will be
+      replaced by CRLF the next time Git touches it
+     [main fc7eb84] Add responsive layout, streaming fetch, and localStorag
+     … +4 lines (ctrl+o to expand)
+
+● Done. Here's exactly what was added for each feature:
+
+  ---
+  Responsive Layout
+
+  - .pga-main CSS class controls the two-column grid (1fr 340px) and collapses
+  to single column at ≤960px — sidebar stacks below leaderboard
+  - At ≤600px: header padding shrinks, and .hide-mobile hides the Today and Thru
+   columns so the table fits on phone screens
+  - clamp() on the header title handles font size across all screen widths
+
+  Streaming Responses
+
+  - fetchStream(url, options) replaces .then(r => r.json()) on both API calls
+  - Uses response.body.getReader() to consume the response as a ReadableStream,
+  decoding chunks incrementally with TextDecoder — then decoder.decode() at the
+  end flushes any trailing multi-byte characters before JSON.parse()
+
+  Caching
+
+  - localStorage cache with a 5-minute TTL (CACHE_TTL_MS)
+  - On page load: checks cache first — if fresh data exists it renders instantly
+   without a network request
+  - The refresh button calls cacheClear() before fetching, guaranteeing live
+  data
+  - Each card shows a CacheBar footer: ⚡ Cached (yellow) or 🔄 Live (green),
+  plus an "Updated Xm ago" label that ticks every 30 seconds
+
+✻ Sautéed for 3m 8s
+
+> For the PGA Championship card, add a collapsable view so you don't have       
+scroll all the way down to see the weather                                      
+
+  Read 1 file (ctrl+o to expand)
+
+● I have enough context. I'll add a collapsible chevron toggle to the Card
+  component with a smooth CSS transition, add the CSS class to GLOBAL_CSS, and
+  pass collapsible to the leaderboard card.
+
+● Update(src\MastersDashboard.jsx)
+  ⎿  Added 12 lines
+      101    .refresh-btn:active { transform: scale(0.93); }
+      102    .refresh-btn.spinning svg { animation: spin 0.7s linear infi
+           nite; }
+      103  
+      104 +  /* Collapsible card body */                                 
+      105 +  .card-body {                                                
+      106 +    overflow: hidden;                                         
+      107 +    transition: max-height 0.35s ease, opacity 0.25s ease;    
+      108 +  }                                                           
+      109 +  .card-body.expanded  { max-height: 4000px; opacity: 1; }    
+      110 +  .card-body.collapsed { max-height: 0;      opacity: 0; }    
+      111 +                                                              
+      112 +  /* Chevron rotates when collapsed */                        
+      113 +  .chevron { transition: transform 0.3s ease; display: inline-
+          +flex; }                                                       
+      114 +  .chevron.collapsed { transform: rotate(-90deg); }           
+      115 +                                                              
+      116    /* ── Responsive grid ── */
+      117    .pga-main {
+      118      display: grid;
+
+● Now add the CollapseButton component and update Card to support collapsing:
+
+● Update(src\MastersDashboard.jsx)
+  ⎿  Added 25 lines, removed 5 lines
+      199    );
+      200  }
+      201  
+      202 -function Card({ title, subtitle, accent, children, onRefresh, 
+          -refreshing, meta, now }) {                                    
+      202 +function Card({ title, subtitle, accent, children, onRefresh, 
+          +refreshing, meta, now, collapsible }) {                       
+      203 +  const [collapsed, setCollapsed] = useState(false);          
+      204 +                                                              
+      205    return (
+      206      <div style={S.card}>
+      207        <div style={{ height: 4, backgroundColor: accent || C.re
+           d }} />
+      208        <div style={S.cardHead}>
+      207 -        <div>                                                 
+      209 +        <div style={{ flex: 1, minWidth: 0 }}>                
+      210            <h2 style={S.cardTitle}>{title}</h2>
+      211            {subtitle && <span style={S.cardSub}>{subtitle}</spa
+           n>}
+      212          </div>
+      211 -        {onRefresh && <RefreshButton onClick={onRefresh} spinn
+          -ing={refreshing} />}                                          
+      213 +        <div style={{ display: "flex", alignItems: "center", g
+          +ap: 6, flexShrink: 0 }}>                                      
+      214 +          {onRefresh && <RefreshButton onClick={onRefresh} spi
+          +nning={refreshing} />}                                        
+      215 +          {collapsible && (                                   
+      216 +            <button                                           
+      217 +              onClick={() => setCollapsed((c) => !c)}         
+      218 +              title={collapsed ? "Expand" : "Collapse"}       
+      219 +              style={S.refreshBtn}                            
+      220 +            >                                                 
+      221 +              <span className={`chevron${collapsed ? " collaps
+          +ed" : ""}`}>                                                  
+      222 +                <svg width="14" height="14" viewBox="0 0 24 24
+          +" fill="none" stroke="currentColor"                           
+      223 +                     strokeWidth="2.5" strokeLinecap="round" s
+          +trokeLinejoin="round">                                        
+      224 +                  <polyline points="6 9 12 15 18 9" />        
+      225 +                </svg>                                        
+      226 +              </span>                                         
+      227 +            </button>                                         
+      228 +          )}                                                  
+      229 +        </div>                                                
+      230        </div>
+      213 -      {children}                                              
+      214 -      <CacheBar meta={meta} now={now} />                      
+      231 +      <div className={`card-body ${collapsed ? "collapsed" : "
+          +expanded"}`}>                                                 
+      232 +        {children}                                            
+      233 +        <CacheBar meta={meta} now={now} />                    
+      234 +      </div>                                                  
+      235      </div>
+      236    );
+      237  }
+
+● Now add collapsible to the leaderboard card in the JSX:
+
+● Update(src\MastersDashboard.jsx)
+  ⎿  Added 1 line
+      522            refreshing={boardLoading}
+      523            meta={boardMeta}
+      524            now={now}
+      525 +          collapsible                                         
+      526          >
+      527            <LeaderboardSection
+      528              data={leaderboard}
+
+● Bash(cd "C:/Users/kpols/OneDrive/UCF/DIG4503 Spring 2026/Week 12" && git add
+      src/MastersDashboard.jsx && git commit -m "$(cat <<'EOF'
+      Add collapsible toggle to PGA C…)
+  ⎿  warning: in the working copy of 'src/MastersDashboard.jsx', LF will be
+      replaced by CRLF the next time Git touches it
+     [main 436f41c] Add collapsible toggle to PGA Championship leaderboard
+     … +4 lines (ctrl+o to expand)
+
+● Done. Here's what was added:
+
+  - Chevron button — appears in the leaderboard card header (next to refresh).
+  Clicking it collapses or expands the card body with a smooth animation.
+  - CSS transition — .card-body animates max-height (0 → 4000px) and opacity (0
+  → 1) over 0.35s, giving a smooth slide effect.
+  - Chevron rotation — the ▼ icon rotates 90° when the card is collapsed via a
+  CSS class swap, giving a clear visual cue of the current state.
+  - Scope — collapse state lives inside Card via useState, so it's
+  self-contained. Only the leaderboard card gets the collapsible prop — the
+  weather card is unaffected.
+
+  On mobile (single-column layout), collapsing the leaderboard instantly brings
+  the weather card into view.
+
+✻ Churned for 47s
+
+> Great but when it collapses keep the top 10 players                           
+
+  Read 1 file (ctrl+o to expand)
+
+● I have everything I need. Now I'll make the three targeted edits:
+
+  1. Remove the max-height: 0 / opacity: 0 CSS — the card body stays visible;
+  only the table content changes.
+
+  2. Update Card to pass collapsed to children as a render prop.
+
+  3. Update LeaderboardSection to slice to top 10 when collapsed and show a "+N
+  more" indicator row.
+
+● Update(src\MastersDashboard.jsx)
+  ⎿  Removed 8 lines
+      101    .refresh-btn:active { transform: scale(0.93); }
+      102    .refresh-btn.spinning svg { animation: spin 0.7s linear infi
+           nite; }
+      103  
+      104 -  /* Collapsible card body */                                 
+      105 -  .card-body {                                                
+      106 -    overflow: hidden;                                         
+      107 -    transition: max-height 0.35s ease, opacity 0.25s ease;    
+      108 -  }                                                           
+      109 -  .card-body.expanded  { max-height: 4000px; opacity: 1; }    
+      110 -  .card-body.collapsed { max-height: 0;      opacity: 0; }    
+      111 -                                                              
+      104    /* Chevron rotates when collapsed */
+      105    .chevron { transition: transform 0.3s ease; display: inline-
+           flex; }
+      106    .chevron.collapsed { transform: rotate(-90deg); }
+● Update(src\MastersDashboard.jsx)
+  ⎿  Added 2 lines, removed 2 lines
+      220            )}
+      221          </div>
+      222        </div>
+      223 -      <div className={`card-body ${collapsed ? "collapsed" : "
+          -expanded"}`}>                                                 
+      224 -        {children}                                            
+      223 +      <div>                                                   
+      224 +        {typeof children === "function" ? children(collapsed) 
+          +: children}                                                   
+      225          <CacheBar meta={meta} now={now} />
+      226        </div>
+      227      </div>
+
+● Update(src\MastersDashboard.jsx)
+  ⎿  Added 15 lines, removed 5 lines
+      275  
+      276  // ─── Leaderboard Section ───────────────────────────────────
+           ───────────────────
+      277  
+      278 -function LeaderboardSection({ data, loading, error }) {       
+      278 +function LeaderboardSection({ data, loading, error, collapsed 
+          +}) {                                                          
+      279    if (loading) return <Loading />;
+      280    if (error)   return <ErrorMsg msg={error} />;
+      281  
+      282 -  const active = data.filter((p) => p.status === "active");   
+      283 -  const cut    = data.filter((p) => p.status === "cut");      
+      282 +  const active       = data.filter((p) => p.status === "active
+          +");                                                           
+      283 +  const cut          = data.filter((p) => p.status === "cut");
+      284 +  const displayed    = collapsed ? active.slice(0, 10) : activ
+          +e;                                                            
+      285 +  const hiddenCount  = collapsed ? Math.max(0, active.length -
+          + 10) : 0;                                                     
+      286  
+      287    return (
+      288      <div style={{ overflowX: "auto" }}>
+     ...
+      297            </tr>
+      298          </thead>
+      299          <tbody>
+      298 -          {active.map((p, i) => {                             
+      300 +          {displayed.map((p, i) => {                          
+      301              const total      = totalScore(p.rounds);
+      302              const todayRound = p.rounds.find((r) => r.round_nu
+           mber === p.current_round);
+      303              const today      = todayRound ? todayRound.total_t
+           o_par : null;
+     ...
+      333              );
+      334            })}
+      335  
+      334 -          {cut.length > 0 && (                                
+      336 +          {collapsed && hiddenCount > 0 && (                  
+      337              <tr>
+      338 +              <td colSpan={5} style={S.moreRow}>              
+      339 +                +{hiddenCount} more players · click ∧ to expan
+          +d                                                             
+      340 +              </td>                                           
+      341 +            </tr>                                             
+      342 +          )}                                                  
+      343 +                                                              
+      344 +          {!collapsed && cut.length > 0 && (                  
+      345 +            <tr>                                              
+      346                <td colSpan={5} style={S.cutBar}>
+      347                  ✂&nbsp;&nbsp;Cut — {cut.length} players elimin
+           ated
+      348                </td>
+
+● Now update the leaderboard card's children to use the render prop, and add the
+   moreRow style:
+
+● Update(src\MastersDashboard.jsx)
+  ⎿  Added 8 lines, removed 5 lines
+      526            now={now}
+      527            collapsible
+      528          >
+      529 -          <LeaderboardSection                                 
+      530 -            data={leaderboard}                                
+      531 -            loading={boardLoading}                            
+      532 -            error={boardError}                                
+      533 -          />                                                  
+      529 +          {(collapsed) => (                                   
+      530 +            <LeaderboardSection                               
+      531 +              data={leaderboard}                              
+      532 +              loading={boardLoading}                          
+      533 +              error={boardError}                              
+      534 +              collapsed={collapsed}                           
+      535 +            />                                                
+      536 +          )}                                                  
+      537          </Card>
+      538  
+      539          <div style={S.sidebar}>
+
+● Now add the moreRow style to the S object:
+
+● Update(src\MastersDashboard.jsx)
+  ⎿  Added 13 lines
+      769    playerName: { fontWeight: 600, color: C.textDark, fontSize: 
+           "0.93rem" },
+      770    playerSub:  { fontSize: "0.72rem", color: C.silver, marginTo
+           p: 2, fontWeight: 500, letterSpacing: "0.04em" },
+      771  
+      772 +  // "N more players" row shown when collapsed                
+      773 +  moreRow: {                                                  
+      774 +    textAlign: "center",                                      
+      775 +    padding: "9px 16px",                                      
+      776 +    fontSize: "0.72rem",                                      
+      777 +    fontWeight: 600,                                          
+      778 +    letterSpacing: "0.06em",                                  
+      779 +    color: C.azure,                                           
+      780 +    backgroundColor: "#EEF2FA",                               
+      781 +    borderTop: `1px solid ${C.border}`,                       
+      782 +    cursor: "default",                                        
+      783 +  },                                                          
+      784 +                                                              
+      785    // Cut bar
+      786    cutBar: {
+      787      backgroundColor: C.red,
+
+● Bash(cd "C:/Users/kpols/OneDrive/UCF/DIG4503 Spring 2026/Week 12" && git add
+      src/MastersDashboard.jsx && git commit -m "$(cat <<'EOF'
+      Show top 10 players when leader…)
+  ⎿  warning: in the working copy of 'src/MastersDashboard.jsx', LF will be
+      replaced by CRLF the next time Git touches it
+     [main 1b73da4] Show top 10 players when leaderboard is collapsed
+     … +3 lines (ctrl+o to expand)
+
+● Done. Here's what changed:
+
+  - Collapsed (chevron clicked) — shows the top 10 active players + a muted +N 
+  more players · click ∧ to expand row at the bottom. Cut section is hidden
+  since it's not relevant to the top-10 view.
+  - Expanded (default) — shows the full leaderboard exactly as before, including
+   the cut section.
+  - Render prop pattern — Card calls children(collapsed) and passes the boolean
+  down to LeaderboardSection, so Card stays generic and doesn't need to know
+  anything about the content it wraps.
+
+✻ Sautéed for 1m 40s
+
+> Create a README file but leave it blank I will manually fill it out           
+
+● Bash(cd "C:/Users/kpols/OneDrive/UCF/DIG4503 Spring 2026/Week 12" && touch
+      README.md)
+  ⎿  Done
+
+● Bash(cd "C:/Users/kpols/OneDrive/UCF/DIG4503 Spring 2026/Week 12" && git add
+      README.md && git commit -m "$(cat <<'EOF'
+      Add blank README.md…)
+  ⎿  [main aa0c596] Add blank README.md
+      1 file changed, 0 insertions(+), 0 deletions(-)
+      create mode 100644 README.md
+     … +2 lines (ctrl+o to expand)
+
+● README.md created and pushed — completely blank, ready for you to fill in.
