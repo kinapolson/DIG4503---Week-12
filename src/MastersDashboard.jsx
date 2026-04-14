@@ -101,6 +101,18 @@ const GLOBAL_CSS = `
   .refresh-btn:active { transform: scale(0.93); }
   .refresh-btn.spinning svg { animation: spin 0.7s linear infinite; }
 
+  /* Collapsible card body */
+  .card-body {
+    overflow: hidden;
+    transition: max-height 0.35s ease, opacity 0.25s ease;
+  }
+  .card-body.expanded  { max-height: 4000px; opacity: 1; }
+  .card-body.collapsed { max-height: 0;      opacity: 0; }
+
+  /* Chevron rotates when collapsed */
+  .chevron { transition: transform 0.3s ease; display: inline-flex; }
+  .chevron.collapsed { transform: rotate(-90deg); }
+
   /* ── Responsive grid ── */
   .pga-main {
     display: grid;
@@ -187,19 +199,39 @@ function CacheBar({ meta, now }) {
   );
 }
 
-function Card({ title, subtitle, accent, children, onRefresh, refreshing, meta, now }) {
+function Card({ title, subtitle, accent, children, onRefresh, refreshing, meta, now, collapsible }) {
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
     <div style={S.card}>
       <div style={{ height: 4, backgroundColor: accent || C.red }} />
       <div style={S.cardHead}>
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <h2 style={S.cardTitle}>{title}</h2>
           {subtitle && <span style={S.cardSub}>{subtitle}</span>}
         </div>
-        {onRefresh && <RefreshButton onClick={onRefresh} spinning={refreshing} />}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          {onRefresh && <RefreshButton onClick={onRefresh} spinning={refreshing} />}
+          {collapsible && (
+            <button
+              onClick={() => setCollapsed((c) => !c)}
+              title={collapsed ? "Expand" : "Collapse"}
+              style={S.refreshBtn}
+            >
+              <span className={`chevron${collapsed ? " collapsed" : ""}`}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </span>
+            </button>
+          )}
+        </div>
       </div>
-      {children}
-      <CacheBar meta={meta} now={now} />
+      <div className={`card-body ${collapsed ? "collapsed" : "expanded"}`}>
+        {children}
+        <CacheBar meta={meta} now={now} />
+      </div>
     </div>
   );
 }
@@ -490,6 +522,7 @@ export default function MastersDashboard() {
           refreshing={boardLoading}
           meta={boardMeta}
           now={now}
+          collapsible
         >
           <LeaderboardSection
             data={leaderboard}
