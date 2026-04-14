@@ -1,5 +1,15 @@
 import React from "react";
 
+// --- API Config ---
+// Create React App: set REACT_APP_OPENWEATHER_KEY in your .env file
+// Vite: set VITE_OPENWEATHER_KEY in .env and use import.meta.env.VITE_OPENWEATHER_KEY
+const OPENWEATHER_API_KEY = process.env.REACT_APP_OPENWEATHER_KEY;
+const WEATHER_URL = `https://api.openweathermap.org/data/2.5/weather?q=Augusta,GA,US&units=imperial&appid=${OPENWEATHER_API_KEY}`;
+
+const RAPIDAPI_KEY = process.env.REACT_APP_RAPIDAPI_KEY;
+const GOLF_TOURNAMENT_ID = "25"; // PGA Championship sample; swap for current tournament
+const GOLF_URL = `https://golf-leaderboard-data.p.rapidapi.com/leaderboard/${GOLF_TOURNAMENT_ID}`;
+
 const COLORS = {
   mastersGreen: "#006747",
   yellow: "#F5D130",
@@ -18,7 +28,6 @@ const styles = {
     minHeight: "100vh",
     color: COLORS.deepBlue,
   },
-
   header: {
     backgroundColor: COLORS.mastersGreen,
     color: COLORS.white,
@@ -26,14 +35,12 @@ const styles = {
     padding: "24px 16px 16px",
     borderBottom: `6px solid ${COLORS.yellow}`,
   },
-
   headerTitle: {
     fontSize: "2.4rem",
     fontWeight: "bold",
     letterSpacing: "0.05em",
     margin: 0,
   },
-
   headerSubtitle: {
     fontSize: "0.95rem",
     color: COLORS.khaki,
@@ -41,7 +48,6 @@ const styles = {
     letterSpacing: "0.1em",
     textTransform: "uppercase",
   },
-
   badge: {
     display: "inline-block",
     backgroundColor: COLORS.yellow,
@@ -54,7 +60,6 @@ const styles = {
     letterSpacing: "0.08em",
     textTransform: "uppercase",
   },
-
   main: {
     maxWidth: "1100px",
     margin: "0 auto",
@@ -64,14 +69,12 @@ const styles = {
     gap: "24px",
     alignItems: "start",
   },
-
   card: {
     backgroundColor: COLORS.white,
     borderRadius: "8px",
     boxShadow: "0 2px 12px rgba(0,0,0,0.10)",
     overflow: "hidden",
   },
-
   cardHeader: {
     backgroundColor: COLORS.mastersGreen,
     color: COLORS.white,
@@ -80,7 +83,6 @@ const styles = {
     alignItems: "center",
     justifyContent: "space-between",
   },
-
   cardTitle: {
     margin: 0,
     fontSize: "1.1rem",
@@ -88,7 +90,6 @@ const styles = {
     letterSpacing: "0.06em",
     textTransform: "uppercase",
   },
-
   cardTitleAccent: {
     width: "8px",
     height: "8px",
@@ -97,16 +98,13 @@ const styles = {
     display: "inline-block",
     marginLeft: "8px",
   },
-
   table: {
     width: "100%",
     borderCollapse: "collapse",
   },
-
   thead: {
     backgroundColor: COLORS.lightKhaki,
   },
-
   th: {
     padding: "10px 16px",
     textAlign: "left",
@@ -117,75 +115,60 @@ const styles = {
     color: COLORS.mastersGreen,
     borderBottom: `2px solid ${COLORS.khaki}`,
   },
-
   thRight: {
     textAlign: "right",
   },
-
   tr: {
     borderBottom: `1px solid ${COLORS.lightKhaki}`,
-    transition: "background 0.15s",
   },
-
   trHighlight: {
     borderBottom: `1px solid ${COLORS.lightKhaki}`,
     backgroundColor: "#FFF9E6",
   },
-
   td: {
     padding: "12px 16px",
     fontSize: "0.95rem",
   },
-
   tdRight: {
     textAlign: "right",
   },
-
   positionCell: {
     fontWeight: "bold",
     color: COLORS.mastersGreen,
     width: "40px",
   },
-
   playerName: {
     fontWeight: "bold",
     color: COLORS.deepBlue,
   },
-
   playerCountry: {
     fontSize: "0.78rem",
     color: COLORS.khaki,
     marginTop: "2px",
   },
-
   scoreUnder: {
     color: COLORS.mastersGreen,
     fontWeight: "bold",
     fontSize: "1rem",
   },
-
   scoreOver: {
     color: "#C0392B",
     fontWeight: "bold",
     fontSize: "1rem",
   },
-
   scoreEven: {
     color: COLORS.deepBlue,
     fontWeight: "bold",
     fontSize: "1rem",
   },
-
   todayCell: {
     color: COLORS.deepBlue,
     fontSize: "0.9rem",
   },
-
   thruCell: {
     color: COLORS.khaki,
     fontSize: "0.85rem",
   },
-
   cutLine: {
     backgroundColor: COLORS.azalea,
     textAlign: "center",
@@ -196,18 +179,28 @@ const styles = {
     textTransform: "uppercase",
     color: COLORS.deepBlue,
   },
-
+  loadingBox: {
+    textAlign: "center",
+    padding: "40px 20px",
+    color: COLORS.mastersGreen,
+    fontSize: "1rem",
+    letterSpacing: "0.08em",
+  },
+  errorBox: {
+    textAlign: "center",
+    padding: "24px",
+    color: "#C0392B",
+    fontSize: "0.9rem",
+  },
   weatherCard: {
     backgroundColor: COLORS.white,
     borderRadius: "8px",
     boxShadow: "0 2px 12px rgba(0,0,0,0.10)",
     overflow: "hidden",
   },
-
   weatherBody: {
     padding: "20px",
   },
-
   weatherMain: {
     display: "flex",
     alignItems: "center",
@@ -216,26 +209,22 @@ const styles = {
     paddingBottom: "20px",
     borderBottom: `1px solid ${COLORS.lightKhaki}`,
   },
-
   weatherIcon: {
     fontSize: "3.5rem",
     lineHeight: 1,
   },
-
   weatherTemp: {
     fontSize: "2.4rem",
     fontWeight: "bold",
     color: COLORS.deepBlue,
     lineHeight: 1,
   },
-
   weatherDesc: {
     fontSize: "0.95rem",
     color: COLORS.mastersGreen,
     marginTop: "4px",
     fontStyle: "italic",
   },
-
   weatherLocation: {
     fontSize: "0.78rem",
     color: COLORS.khaki,
@@ -243,19 +232,16 @@ const styles = {
     letterSpacing: "0.08em",
     marginTop: "4px",
   },
-
   weatherGrid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
     gap: "12px",
   },
-
   weatherStat: {
     backgroundColor: COLORS.lightKhaki,
     borderRadius: "6px",
     padding: "10px 12px",
   },
-
   weatherStatLabel: {
     fontSize: "0.7rem",
     textTransform: "uppercase",
@@ -263,13 +249,11 @@ const styles = {
     color: COLORS.khaki,
     marginBottom: "4px",
   },
-
   weatherStatValue: {
     fontSize: "1.1rem",
     fontWeight: "bold",
     color: COLORS.deepBlue,
   },
-
   footer: {
     backgroundColor: COLORS.darkGreen,
     color: COLORS.khaki,
@@ -280,23 +264,21 @@ const styles = {
   },
 };
 
-// --- Placeholder data ---
-const leaderboardData = [
-  { pos: 1,  name: "Scottie Scheffler",  country: "USA",   total: -12, today: -4, thru: 18 },
-  { pos: 2,  name: "Rory McIlroy",       country: "NIR",   total: -10, today: -3, thru: 14 },
-  { pos: 3,  name: "Collin Morikawa",    country: "USA",   total: -9,  today: -2, thru: 18 },
-  { pos: 4,  name: "Ludvig Åberg",       country: "SWE",   total: -8,  today: -1, thru: 16 },
-  { pos: 5,  name: "Tommy Fleetwood",    country: "ENG",   total: -7,  today:  0, thru: 18 },
-  { pos: 6,  name: "Xander Schauffele",  country: "USA",   total: -6,  today: +1, thru: 18 },
-  { pos: 7,  name: "Jon Rahm",           country: "ESP",   total: -5,  today: +2, thru: 12 },
-  { pos: 8,  name: "Brooks Koepka",      country: "USA",   total: -4,  today:  0, thru: 18 },
-  { pos: "CUT", name: "— Cut Line —",   country: "",      total: "+1", today: "", thru: "" },
-  { pos: 9,  name: "Patrick Reed",       country: "USA",   total: +2,  today: +3, thru: 18 },
-];
+// --- Helpers ---
 
-const OPENWEATHER_API_KEY = "YOUR_API_KEY_HERE";
-const WEATHER_URL =
-  `https://api.openweathermap.org/data/2.5/weather?q=Augusta,GA,US&units=imperial&appid=${OPENWEATHER_API_KEY}`;
+// total_to_par at the player level is 0 in this API response (not populated).
+// Calculate it by summing each completed round's total_to_par instead.
+function calcTotalToPar(rounds) {
+  return rounds.reduce((sum, r) => sum + (r.total_to_par || 0), 0);
+}
+
+// Get today's (current round) score from the rounds array
+function getTodayScore(player) {
+  const round = player.rounds.find(
+    (r) => r.round_number === player.current_round
+  );
+  return round ? round.total_to_par : null;
+}
 
 function getWeatherIcon(code) {
   if (!code) return "🌤";
@@ -310,69 +292,148 @@ function getWeatherIcon(code) {
   return "🌤";
 }
 
+// --- Sub-components ---
+
 function ScoreDisplay({ score }) {
-  if (typeof score !== "number") return <span style={styles.scoreEven}>{score}</span>;
+  if (score === null || score === undefined)
+    return <span style={styles.scoreEven}>-</span>;
   if (score < 0) return <span style={styles.scoreUnder}>{score}</span>;
   if (score > 0) return <span style={styles.scoreOver}>+{score}</span>;
   return <span style={styles.scoreEven}>E</span>;
 }
 
 function Leaderboard() {
+  const [leaderboard, setLeaderboard] = React.useState([]);
+  const [tournament, setTournament] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    fetch(GOLF_URL, {
+      method: "GET",
+      headers: {
+        "x-rapidapi-host": "golf-leaderboard-data.p.rapidapi.com",
+        "x-rapidapi-key": RAPIDAPI_KEY,
+      },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Golf API error: ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        // response.results.tournament → tournament meta
+        // response.results.leaderboard → array of player objects
+        setTournament(data.results.tournament);
+        setLeaderboard(data.results.leaderboard);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+
+  // Map API player object → display row
+  // Fields used:
+  //   player.position          → ranking/position
+  //   player.first_name + last_name → full name
+  //   player.country           → country code
+  //   calcTotalToPar(rounds)   → total score (player.total_to_par is 0 in API response)
+  //   getTodayScore(player)    → current round score
+  //   player.holes_played      → holes completed (0/1-17/18)
+  //   player.status            → "active" | "cut" | "wd" | "dsq"
+  const activeRows = leaderboard.filter((p) => p.status === "active");
+  const cutRows = leaderboard.filter((p) => p.status === "cut");
+  const firstCutPos = cutRows.length > 0 ? cutRows[0].position : null;
+
+  const roundLabel = tournament
+    ? `Round ${tournament.live_details.current_round} · ${
+        tournament.live_details.status === "completed"
+          ? "Final"
+          : tournament.live_details.status === "inprogress"
+          ? "In Progress"
+          : tournament.live_details.status
+      }`
+    : "Live";
+
   return (
     <div style={styles.card}>
       <div style={styles.cardHeader}>
         <h2 style={styles.cardTitle}>
-          Leaderboard
+          {tournament ? tournament.name : "Leaderboard"}
           <span style={styles.cardTitleAccent} />
         </h2>
-        <span style={{ fontSize: "0.78rem", color: COLORS.khaki, letterSpacing: "0.06em" }}>
-          Round 4 · In Progress
+        <span
+          style={{
+            fontSize: "0.78rem",
+            color: COLORS.khaki,
+            letterSpacing: "0.06em",
+          }}
+        >
+          {roundLabel}
         </span>
       </div>
 
-      <table style={styles.table}>
-        <thead style={styles.thead}>
-          <tr>
-            <th style={styles.th}>Pos</th>
-            <th style={styles.th}>Player</th>
-            <th style={{ ...styles.th, ...styles.thRight }}>Total</th>
-            <th style={{ ...styles.th, ...styles.thRight }}>Today</th>
-            <th style={{ ...styles.th, ...styles.thRight }}>Thru</th>
-          </tr>
-        </thead>
-        <tbody>
-          {leaderboardData.map((player, i) => {
-            if (player.pos === "CUT") {
+      {loading && <div style={styles.loadingBox}>Loading...</div>}
+      {error && <div style={styles.errorBox}>⚠ {error}</div>}
+
+      {!loading && !error && (
+        <table style={styles.table}>
+          <thead style={styles.thead}>
+            <tr>
+              <th style={styles.th}>Pos</th>
+              <th style={styles.th}>Player</th>
+              <th style={{ ...styles.th, ...styles.thRight }}>Total</th>
+              <th style={{ ...styles.th, ...styles.thRight }}>Today</th>
+              <th style={{ ...styles.th, ...styles.thRight }}>Thru</th>
+            </tr>
+          </thead>
+          <tbody>
+            {activeRows.map((player, i) => {
+              const total = calcTotalToPar(player.rounds);
+              const today = getTodayScore(player);
+              const thru =
+                player.holes_played === 18
+                  ? "F"
+                  : player.holes_played === 0
+                  ? "-"
+                  : player.holes_played;
+              const rowStyle =
+                player.position === 1 ? styles.trHighlight : styles.tr;
+              const fullName = `${player.first_name} ${player.last_name}`;
+
               return (
-                <tr key="cut">
-                  <td colSpan={5} style={styles.cutLine}>
-                    ✂ Projected Cut Line
+                <tr key={player.player_id} style={rowStyle}>
+                  <td style={{ ...styles.td, ...styles.positionCell }}>
+                    {player.position}
+                  </td>
+                  <td style={styles.td}>
+                    <div style={styles.playerName}>{fullName}</div>
+                    <div style={styles.playerCountry}>{player.country}</div>
+                  </td>
+                  <td style={{ ...styles.td, ...styles.tdRight }}>
+                    <ScoreDisplay score={total} />
+                  </td>
+                  <td style={{ ...styles.td, ...styles.tdRight, ...styles.todayCell }}>
+                    <ScoreDisplay score={today} />
+                  </td>
+                  <td style={{ ...styles.td, ...styles.tdRight, ...styles.thruCell }}>
+                    {thru}
                   </td>
                 </tr>
               );
-            }
-            const rowStyle = player.pos === 1 ? styles.trHighlight : styles.tr;
-            return (
-              <tr key={i} style={rowStyle}>
-                <td style={{ ...styles.td, ...styles.positionCell }}>{player.pos}</td>
-                <td style={styles.td}>
-                  <div style={styles.playerName}>{player.name}</div>
-                  <div style={styles.playerCountry}>{player.country}</div>
-                </td>
-                <td style={{ ...styles.td, ...styles.tdRight }}>
-                  <ScoreDisplay score={player.total} />
-                </td>
-                <td style={{ ...styles.td, ...styles.tdRight, ...styles.todayCell }}>
-                  <ScoreDisplay score={player.today} />
-                </td>
-                <td style={{ ...styles.td, ...styles.tdRight, ...styles.thruCell }}>
-                  {player.thru === 18 ? "F" : player.thru}
+            })}
+
+            {cutRows.length > 0 && (
+              <tr>
+                <td colSpan={5} style={styles.cutLine}>
+                  ✂ Cut — {cutRows.length} players eliminated
                 </td>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
+            )}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
@@ -418,17 +479,8 @@ function WeatherPanel() {
       </div>
 
       <div style={styles.weatherBody}>
-        {loading && (
-          <div style={{ textAlign: "center", padding: "32px 0", color: COLORS.mastersGreen, fontSize: "1rem", letterSpacing: "0.08em" }}>
-            Loading...
-          </div>
-        )}
-
-        {error && (
-          <div style={{ textAlign: "center", padding: "24px", color: "#C0392B", fontSize: "0.9rem" }}>
-            ⚠ {error}
-          </div>
-        )}
+        {loading && <div style={styles.loadingBox}>Loading...</div>}
+        {error && <div style={styles.errorBox}>⚠ {error}</div>}
 
         {!loading && !error && weather && (
           <>
@@ -477,7 +529,7 @@ export default function MastersDashboard() {
       </main>
 
       <footer style={styles.footer}>
-        Augusta National Golf Club · All scores are placeholder data
+        Augusta National Golf Club · Data via RapidAPI & OpenWeather
       </footer>
     </div>
   );
