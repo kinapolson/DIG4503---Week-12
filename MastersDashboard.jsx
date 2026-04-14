@@ -1,3 +1,5 @@
+import React from "react";
+
 const COLORS = {
   mastersGreen: "#006747",
   yellow: "#F5D130",
@@ -292,16 +294,21 @@ const leaderboardData = [
   { pos: 9,  name: "Patrick Reed",       country: "USA",   total: +2,  today: +3, thru: 18 },
 ];
 
-const weatherData = {
-  temp: "74°F",
-  description: "Partly Cloudy",
-  location: "Augusta, GA",
-  icon: "⛅",
-  wind: "12 mph SW",
-  humidity: "58%",
-  feelsLike: "76°F",
-  forecast: "Sunny",
-};
+const OPENWEATHER_API_KEY = "YOUR_API_KEY_HERE";
+const WEATHER_URL =
+  `https://api.openweathermap.org/data/2.5/weather?q=Augusta,GA,US&units=imperial&appid=${OPENWEATHER_API_KEY}`;
+
+function getWeatherIcon(code) {
+  if (!code) return "🌤";
+  if (code >= 200 && code < 300) return "⛈";
+  if (code >= 300 && code < 400) return "🌦";
+  if (code >= 500 && code < 600) return "🌧";
+  if (code >= 600 && code < 700) return "❄️";
+  if (code >= 700 && code < 800) return "🌫";
+  if (code === 800) return "☀️";
+  if (code > 800) return "⛅";
+  return "🌤";
+}
 
 function ScoreDisplay({ score }) {
   if (typeof score !== "number") return <span style={styles.scoreEven}>{score}</span>;
@@ -371,6 +378,36 @@ function Leaderboard() {
 }
 
 function WeatherPanel() {
+  const [weather, setWeather] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    fetch(WEATHER_URL)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Weather API error: ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        setWeather({
+          temp: `${Math.round(data.main.temp)}°F`,
+          feelsLike: `${Math.round(data.main.feels_like)}°F`,
+          description: data.weather[0].description
+            .split(" ")
+            .map((w) => w[0].toUpperCase() + w.slice(1))
+            .join(" "),
+          humidity: `${data.main.humidity}%`,
+          wind: `${Math.round(data.wind.speed)} mph`,
+          icon: getWeatherIcon(data.weather[0].id),
+        });
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+
   return (
     <div style={styles.weatherCard}>
       <div style={styles.cardHeader}>
@@ -381,33 +418,45 @@ function WeatherPanel() {
       </div>
 
       <div style={styles.weatherBody}>
-        <div style={styles.weatherMain}>
-          <div style={styles.weatherIcon}>{weatherData.icon}</div>
-          <div>
-            <div style={styles.weatherTemp}>{weatherData.temp}</div>
-            <div style={styles.weatherDesc}>{weatherData.description}</div>
-            <div style={styles.weatherLocation}>{weatherData.location}</div>
+        {loading && (
+          <div style={{ textAlign: "center", padding: "32px 0", color: COLORS.mastersGreen, fontSize: "1rem", letterSpacing: "0.08em" }}>
+            Loading...
           </div>
-        </div>
+        )}
 
-        <div style={styles.weatherGrid}>
-          <div style={styles.weatherStat}>
-            <div style={styles.weatherStatLabel}>Wind</div>
-            <div style={styles.weatherStatValue}>{weatherData.wind}</div>
+        {error && (
+          <div style={{ textAlign: "center", padding: "24px", color: "#C0392B", fontSize: "0.9rem" }}>
+            ⚠ {error}
           </div>
-          <div style={styles.weatherStat}>
-            <div style={styles.weatherStatLabel}>Humidity</div>
-            <div style={styles.weatherStatValue}>{weatherData.humidity}</div>
-          </div>
-          <div style={styles.weatherStat}>
-            <div style={styles.weatherStatLabel}>Feels Like</div>
-            <div style={styles.weatherStatValue}>{weatherData.feelsLike}</div>
-          </div>
-          <div style={styles.weatherStat}>
-            <div style={styles.weatherStatLabel}>Forecast</div>
-            <div style={styles.weatherStatValue}>{weatherData.forecast}</div>
-          </div>
-        </div>
+        )}
+
+        {!loading && !error && weather && (
+          <>
+            <div style={styles.weatherMain}>
+              <div style={styles.weatherIcon}>{weather.icon}</div>
+              <div>
+                <div style={styles.weatherTemp}>{weather.temp}</div>
+                <div style={styles.weatherDesc}>{weather.description}</div>
+                <div style={styles.weatherLocation}>Augusta, GA · Live</div>
+              </div>
+            </div>
+
+            <div style={styles.weatherGrid}>
+              <div style={styles.weatherStat}>
+                <div style={styles.weatherStatLabel}>Wind</div>
+                <div style={styles.weatherStatValue}>{weather.wind}</div>
+              </div>
+              <div style={styles.weatherStat}>
+                <div style={styles.weatherStatLabel}>Humidity</div>
+                <div style={styles.weatherStatValue}>{weather.humidity}</div>
+              </div>
+              <div style={styles.weatherStat}>
+                <div style={styles.weatherStatLabel}>Feels Like</div>
+                <div style={styles.weatherStatValue}>{weather.feelsLike}</div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
