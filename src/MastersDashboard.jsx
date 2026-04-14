@@ -4,8 +4,9 @@ import React, { useState, useEffect } from "react";
 const OPENWEATHER_KEY = process.env.REACT_APP_OPENWEATHER_KEY;
 const RAPIDAPI_KEY    = process.env.REACT_APP_RAPIDAPI_KEY;
 
+// 2026 PGA Championship — Quail Hollow Club, Charlotte, NC
 const WEATHER_URL =
-  `https://api.openweathermap.org/data/2.5/weather?q=Augusta,GA,US&units=imperial&appid=${OPENWEATHER_KEY}`;
+  `https://api.openweathermap.org/data/2.5/weather?q=Charlotte,NC,US&units=imperial&appid=${OPENWEATHER_KEY}`;
 
 const GOLF_URL = `https://golf-leaderboard-data.p.rapidapi.com/leaderboard/25`;
 
@@ -16,22 +17,21 @@ const RAPIDAPI_HEADERS = {
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 const C = {
-  green:      "#006747",
-  greenDark:  "#004D35",
-  greenMid:   "#00593C",
-  yellow:     "#F5D130",
-  azalea:     "#E8A0B0",
-  blue:       "#1B3A6B",
-  white:      "#FFFFFF",
-  khaki:      "#C2B280",
-  khakiLight: "#F0EBE0",
-  khakiBg:    "#F7F3EC",
-  red:        "#B83232",
-  silver:     "#8C8C8C",
-  rowAlt:     "#FDFBF7",
+  azure:      "#003C80",   // Dark Azure — primary
+  azureDark:  "#002660",   // deeper azure for gradient
+  azureMid:   "#004499",   // mid azure for hover states
+  red:        "#F1373D",   // Shiny Red — accent
+  redDark:    "#C42D32",   // darker red for over-par scores
+  white:      "#FFFFFF",   // Full White
+  pageBg:     "#EEF2FA",   // very light azure tint — page background
+  border:     "#D0DBEE",   // light blue border
+  rowAlt:     "#F5F8FD",   // subtle alternate row
+  silver:     "#7A8CA8",   // blue-grey muted text
+  textDark:   "#0D1F3C",   // near-black for body text
+  scoreUnder: "#0055C8",   // bright azure for under-par
 };
 
-// ─── Keyframe injection (loading animation) ───────────────────────────────────
+// ─── Keyframe injection ────────────────────────────────────────────────────────
 const KEYFRAMES = `
   @keyframes pulse {
     0%, 100% { opacity: 1;   transform: scale(1);    }
@@ -45,7 +45,7 @@ const KEYFRAMES = `
     to { transform: rotate(360deg); }
   }
   .lb-row { animation: fadein 0.3s ease both; }
-  .lb-row:hover { background-color: #F5F0E8 !important; }
+  .lb-row:hover { background-color: #E8EFF9 !important; }
   .refresh-btn:hover { background-color: rgba(255,255,255,0.25) !important; }
   .refresh-btn:active { transform: scale(0.93); }
   .refresh-btn.spinning svg { animation: spin 0.7s linear infinite; }
@@ -63,13 +63,13 @@ function fmtScore(n) {
 }
 
 function weatherIcon(id) {
-  if (!id)              return "🌤";
+  if (!id)                   return "🌤";
   if (id >= 200 && id < 300) return "⛈";
   if (id >= 300 && id < 400) return "🌦";
   if (id >= 500 && id < 600) return "🌧";
   if (id >= 600 && id < 700) return "❄️";
   if (id >= 700 && id < 800) return "🌫";
-  if (id === 800)        return "☀️";
+  if (id === 800)             return "☀️";
   return "⛅";
 }
 
@@ -95,8 +95,7 @@ function RefreshButton({ onClick, spinning }) {
 function Card({ title, subtitle, accent, children, onRefresh, refreshing }) {
   return (
     <div style={S.card}>
-      {/* Colored top accent bar */}
-      <div style={{ height: 4, backgroundColor: accent || C.yellow }} />
+      <div style={{ height: 4, backgroundColor: accent || C.red }} />
       <div style={S.cardHead}>
         <div>
           <h2 style={S.cardTitle}>{title}</h2>
@@ -115,7 +114,7 @@ function Loading() {
     width: 8,
     height: 8,
     borderRadius: "50%",
-    backgroundColor: C.green,
+    backgroundColor: C.azure,
     margin: "0 4px",
     animation: `pulse 1.2s ease-in-out ${delay}s infinite`,
   });
@@ -137,17 +136,15 @@ function ErrorMsg({ msg }) {
   );
 }
 
-// Score displayed as a colored pill
 function ScorePill({ score }) {
   if (score === null || score === undefined) {
-    return <span style={{ ...S.pill, backgroundColor: "#E0E0E0", color: C.silver }}>–</span>;
+    return <span style={{ ...S.pill, backgroundColor: "#D8E2EF", color: C.silver }}>–</span>;
   }
-  const bg    = score < 0 ? C.green : score > 0 ? C.red : "#64748B";
+  const bg    = score < 0 ? C.scoreUnder : score > 0 ? C.redDark : "#4A6080";
   const label = fmtScore(score);
   return <span style={{ ...S.pill, backgroundColor: bg, color: C.white }}>{label}</span>;
 }
 
-// Position badge — gold/silver/bronze for top 3, plain for rest
 function PosBadge({ position }) {
   const medal = position === 1 ? { bg: "#C9963A", color: C.white }
               : position === 2 ? { bg: "#9E9E9E", color: C.white }
@@ -177,7 +174,7 @@ function LeaderboardSection({ data, loading, error }) {
     <div style={{ overflowX: "auto" }}>
       <table style={S.table}>
         <thead>
-          <tr style={{ backgroundColor: C.khakiLight }}>
+          <tr style={{ backgroundColor: "#E4ECF7" }}>
             <th style={{ ...S.th, width: 52 }}>Pos</th>
             <th style={S.th}>Player</th>
             <th style={{ ...S.th, textAlign: "center", width: 76 }}>Total</th>
@@ -194,7 +191,7 @@ function LeaderboardSection({ data, loading, error }) {
                              : p.holes_played === 0  ? "–"
                              : p.holes_played;
             const isLeader   = p.position === 1;
-            const rowBg      = isLeader ? "#FFFBEF" : i % 2 === 0 ? C.white : C.rowAlt;
+            const rowBg      = isLeader ? "#EAF0FB" : i % 2 === 0 ? C.white : C.rowAlt;
 
             return (
               <tr
@@ -250,21 +247,15 @@ function WeatherSection({ data, loading, error }) {
 
   return (
     <div style={S.weatherBody}>
-
-      {/* Hero row */}
       <div style={S.weatherHero}>
         <div style={S.weatherEmoji}>{data.icon}</div>
         <div style={S.weatherInfo}>
           <div style={S.weatherTemp}>{data.temp}</div>
           <div style={S.weatherDesc}>{data.description}</div>
-          <div style={S.weatherLoc}>📍 Augusta, GA &nbsp;·&nbsp; Live</div>
+          <div style={S.weatherLoc}>📍 Charlotte, NC &nbsp;·&nbsp; Live</div>
         </div>
       </div>
-
-      {/* Divider */}
       <div style={S.divider} />
-
-      {/* Stat tiles */}
       <div style={S.statGrid}>
         {stats.map(({ icon, label, value }) => (
           <div key={label} style={S.statTile}>
@@ -367,9 +358,9 @@ export default function MastersDashboard() {
       {/* ── Header ── */}
       <header style={S.header}>
         <div style={S.headerInner}>
-          <p style={S.headerEyebrow}>Augusta National Golf Club</p>
-          <h1 style={S.headerTitle}>The Masters Live Dashboard</h1>
-          <p style={S.headerYear}>April 2026</p>
+          <p style={S.headerEyebrow}>Quail Hollow Club · Charlotte, NC</p>
+          <h1 style={S.headerTitle}>PGA Golf Live Leaderboard</h1>
+          <p style={S.headerYear}>May 2026</p>
           <span style={S.liveBadge}>
             <span style={S.liveDot} />
             Live
@@ -383,7 +374,7 @@ export default function MastersDashboard() {
         <Card
           title={tournament ? tournament.name : "Leaderboard"}
           subtitle={roundLabel}
-          accent={C.yellow}
+          accent={C.red}
           onRefresh={refresh}
           refreshing={boardLoading}
         >
@@ -397,7 +388,7 @@ export default function MastersDashboard() {
         <div style={S.sidebar}>
           <Card
             title="Course Weather"
-            accent={C.azalea}
+            accent={C.red}
             onRefresh={refresh}
             refreshing={weatherLoading}
           >
@@ -412,7 +403,7 @@ export default function MastersDashboard() {
       </main>
 
       <footer style={S.footer}>
-        <span>Augusta National Golf Club</span>
+        <span>Quail Hollow Club</span>
         <span style={S.footerDot}>·</span>
         <span>Weather by OpenWeather</span>
         <span style={S.footerDot}>·</span>
@@ -427,15 +418,15 @@ export default function MastersDashboard() {
 const S = {
   page: {
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    backgroundColor: C.khakiBg,
+    backgroundColor: C.pageBg,
     minHeight: "100vh",
-    color: C.blue,
+    color: C.textDark,
   },
 
   // Header
   header: {
-    background: `linear-gradient(160deg, ${C.greenDark} 0%, ${C.green} 100%)`,
-    borderBottom: `5px solid ${C.yellow}`,
+    background: `linear-gradient(160deg, ${C.azureDark} 0%, ${C.azure} 100%)`,
+    borderBottom: `5px solid ${C.red}`,
     padding: "40px 20px 32px",
     textAlign: "center",
   },
@@ -449,7 +440,7 @@ const S = {
     fontWeight: 600,
     letterSpacing: "0.2em",
     textTransform: "uppercase",
-    color: C.khaki,
+    color: "rgba(255,255,255,0.55)",
   },
   headerTitle: {
     margin: 0,
@@ -463,7 +454,7 @@ const S = {
   headerYear: {
     margin: "8px 0 16px",
     fontSize: "0.9rem",
-    color: "rgba(255,255,255,0.6)",
+    color: "rgba(255,255,255,0.5)",
     letterSpacing: "0.06em",
   },
   liveBadge: {
@@ -471,7 +462,7 @@ const S = {
     alignItems: "center",
     gap: 6,
     backgroundColor: "rgba(255,255,255,0.15)",
-    border: `1px solid rgba(255,255,255,0.3)`,
+    border: "1px solid rgba(255,255,255,0.3)",
     color: C.white,
     fontSize: "0.72rem",
     fontWeight: 700,
@@ -484,7 +475,7 @@ const S = {
     width: 7,
     height: 7,
     borderRadius: "50%",
-    backgroundColor: C.yellow,
+    backgroundColor: C.red,
     display: "inline-block",
     animation: "pulse 1.5s ease-in-out infinite",
   },
@@ -509,12 +500,12 @@ const S = {
   card: {
     backgroundColor: C.white,
     borderRadius: 12,
-    boxShadow: "0 4px 6px rgba(0,0,0,0.05), 0 10px 30px rgba(0,0,0,0.08)",
+    boxShadow: "0 4px 6px rgba(0,60,128,0.06), 0 10px 30px rgba(0,60,128,0.10)",
     overflow: "hidden",
-    border: `1px solid rgba(0,0,0,0.06)`,
+    border: `1px solid ${C.border}`,
   },
   cardHead: {
-    backgroundColor: C.green,
+    backgroundColor: C.azure,
     padding: "14px 20px",
     display: "flex",
     alignItems: "center",
@@ -590,11 +581,11 @@ const S = {
     textTransform: "uppercase",
     letterSpacing: "0.1em",
     color: C.silver,
-    borderBottom: `2px solid ${C.khakiLight}`,
+    borderBottom: `2px solid ${C.border}`,
     whiteSpace: "nowrap",
   },
   row: {
-    borderBottom: `1px solid ${C.khakiLight}`,
+    borderBottom: `1px solid ${C.border}`,
     transition: "background 0.15s",
   },
   td: {
@@ -618,7 +609,7 @@ const S = {
     display: "inline-block",
     fontSize: "0.88rem",
     fontWeight: 700,
-    color: C.green,
+    color: C.azure,
     width: 26,
     textAlign: "center",
   },
@@ -638,12 +629,12 @@ const S = {
   // Player
   playerName: {
     fontWeight: 600,
-    color: C.blue,
+    color: C.textDark,
     fontSize: "0.93rem",
   },
   playerSub: {
     fontSize: "0.72rem",
-    color: C.khaki,
+    color: C.silver,
     marginTop: 2,
     fontWeight: 500,
     letterSpacing: "0.04em",
@@ -651,14 +642,14 @@ const S = {
 
   // Cut bar
   cutBar: {
-    backgroundColor: C.azalea,
+    backgroundColor: C.red,
     textAlign: "center",
     padding: "7px 16px",
     fontSize: "0.72rem",
     fontWeight: 700,
     letterSpacing: "0.1em",
     textTransform: "uppercase",
-    color: C.blue,
+    color: C.white,
   },
 
   // Weather
@@ -682,20 +673,21 @@ const S = {
   weatherTemp: {
     fontSize: "3rem",
     fontWeight: 700,
-    color: C.blue,
+    color: C.azure,
     lineHeight: 1,
     fontFamily: "Georgia, serif",
   },
   weatherDesc: {
     fontSize: "1rem",
-    color: C.green,
+    color: C.azure,
     marginTop: 4,
     fontStyle: "italic",
     fontFamily: "Georgia, serif",
+    opacity: 0.75,
   },
   weatherLoc: {
     fontSize: "0.72rem",
-    color: C.khaki,
+    color: C.silver,
     textTransform: "uppercase",
     letterSpacing: "0.1em",
     marginTop: 6,
@@ -703,7 +695,7 @@ const S = {
   },
   divider: {
     height: 1,
-    backgroundColor: C.khakiLight,
+    backgroundColor: C.border,
     margin: "20px 0",
   },
   statGrid: {
@@ -712,8 +704,8 @@ const S = {
     gap: 10,
   },
   statTile: {
-    backgroundColor: C.khakiBg,
-    border: `1px solid ${C.khakiLight}`,
+    backgroundColor: C.pageBg,
+    border: `1px solid ${C.border}`,
     borderRadius: 10,
     padding: "14px 10px",
     textAlign: "center",
@@ -726,7 +718,7 @@ const S = {
   statValue: {
     fontSize: "1rem",
     fontWeight: 700,
-    color: C.blue,
+    color: C.azure,
     lineHeight: 1,
     marginBottom: 4,
   },
@@ -734,13 +726,13 @@ const S = {
     fontSize: "0.65rem",
     textTransform: "uppercase",
     letterSpacing: "0.1em",
-    color: C.khaki,
+    color: C.silver,
     fontWeight: 600,
   },
 
   // Footer
   footer: {
-    backgroundColor: C.greenDark,
+    backgroundColor: C.azureDark,
     color: "rgba(255,255,255,0.5)",
     textAlign: "center",
     padding: "16px 20px",
@@ -753,7 +745,7 @@ const S = {
     gap: "0 10px",
   },
   footerDot: {
-    color: C.yellow,
+    color: C.red,
     fontWeight: "bold",
   },
 };
