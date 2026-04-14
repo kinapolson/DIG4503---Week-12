@@ -1,38 +1,301 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 
-// --- API Config ---
-// Keys are set in .env (never committed). See .env.example.
-const OPENWEATHER_API_KEY = process.env.REACT_APP_OPENWEATHER_KEY;
-const WEATHER_URL = `https://api.openweathermap.org/data/2.5/weather?q=Augusta,GA,US&units=imperial&appid=${OPENWEATHER_API_KEY}`;
+// ─── API Config ───────────────────────────────────────────────────────────────
+const WEATHER_URL =
+  `https://api.openweathermap.org/data/2.5/weather?q=Augusta,GA,US&units=imperial&appid=${process.env.REACT_APP_OPENWEATHER_KEY}`;
 
-const RAPIDAPI_KEY = process.env.REACT_APP_RAPIDAPI_KEY;
-const GOLF_TOURNAMENT_ID = "25";
-const GOLF_URL = `https://golf-leaderboard-data.p.rapidapi.com/leaderboard/${GOLF_TOURNAMENT_ID}`;
+const GOLF_URL =
+  `https://golf-leaderboard-data.p.rapidapi.com/leaderboard/25`;
 
-const COLORS = {
-  mastersGreen: "#006747",
-  yellow: "#F5D130",
-  azalea: "#E8A0B0",
-  deepBlue: "#1B3A6B",
-  white: "#FFFFFF",
-  khaki: "#C2B280",
-  lightKhaki: "#EDE8DA",
-  darkGreen: "#004D35",
+const RAPIDAPI_HEADERS = {
+  "x-rapidapi-host": "golf-leaderboard-data.p.rapidapi.com",
+  "x-rapidapi-key": process.env.REACT_APP_RAPIDAPI_KEY,
 };
 
+// ─── Theme ────────────────────────────────────────────────────────────────────
+const C = {
+  green:      "#006747",
+  greenDark:  "#004D35",
+  yellow:     "#F5D130",
+  azalea:     "#E8A0B0",
+  blue:       "#1B3A6B",
+  white:      "#FFFFFF",
+  khaki:      "#C2B280",
+  khakiLight: "#EDE8DA",
+  red:        "#C0392B",
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// The API does not populate player.total_to_par — sum from rounds[] instead
+function totalScore(rounds = []) {
+  return rounds.reduce((sum, r) => sum + (r.total_to_par || 0), 0);
+}
+
+function fmtScore(n) {
+  if (n === null || n === undefined) return "-";
+  if (n === 0) return "E";
+  return n > 0 ? `+${n}` : `${n}`;
+}
+
+function weatherIcon(id) {
+  if (!id) return "🌤";
+  if (id >= 200 && id < 300) return "⛈";
+  if (id >= 300 && id < 400) return "🌦";
+  if (id >= 500 && id < 600) return "🌧";
+  if (id >= 600 && id < 700) return "❄️";
+  if (id >= 700 && id < 800) return "🌫";
+  if (id === 800) return "☀️";
+  return "⛅";
+}
+
+// ─── Shared UI ────────────────────────────────────────────────────────────────
+
+function CardShell({ title, subtitle, children }) {
+  return (
+    <div style={styles.card}>
+      <div style={styles.cardHead}>
+        <h2 style={styles.cardTitle}>{title}</h2>
+        {subtitle && <span style={styles.cardSub}>{subtitle}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Loading() {
+  return <div style={styles.loading}>Loading...</div>;
+}
+
+function Err({ msg }) {
+  return <div style={styles.err}>⚠ {msg}</div>;
+}
+
+function ScoreBadge({ score }) {
+  const color = score < 0 ? C.green : score > 0 ? C.red : C.blue;
+  return <span style={{ ...styles.score, color }}>{fmtScore(score)}</span>;
+}
+
+// ─── Leaderboard Section ──────────────────────────────────────────────────────
+
+function LeaderboardSection({ data, tournament, loading, error }) {
+  if (loading) return <Loading />;
+  if (error)   return <Err msg={error} />;
+
+  const active = data.filter((p) => p.status === "active");
+  const cut    = data.filter((p) => p.status === "cut");
+
+  return (
+    <table style={styles.table}>
+      <thead>
+        <tr style={{ backgroundColor: C.khakiLight }}>
+          <th style={styles.th}>Pos</th>
+          <th style={styles.th}>Player</th>
+          <th style={{ ...styles.th, textAlign: "right" }}>Total</th>
+          <th style={{ ...styles.th, textAlign: "right" }}>Today</th>
+          <th style={{ ...styles.th, textAlign: "right" }}>Thru</th>
+        </tr>
+      </thead>
+      <tbody>
+        {active.map((p) => {
+          const total = totalScore(p.rounds);
+          const todayRound = p.rounds.find((r) => r.round_number === p.current_round);
+          const today = todayRound ? todayRound.total_to_par : null;
+          const thru  = p.holes_played === 18 ? "F" : p.holes_played === 0 ? "-" : p.holes_played;
+          const rowBg = p.position === 1 ? "#FFFBEA" : C.white;
+
+          return (
+            <tr key={p.player_id} style={{ ...styles.row, backgroundColor: rowBg }}>
+              <td style={{ ...styles.td, ...styles.pos }}>{p.position}</td>
+              <td style={styles.td}>
+                <div style={styles.playerName}>{p.first_name} {p.last_name}</div>
+                <div style={styles.playerSub}>{p.country}</div>
+              </td>
+              <td style={{ ...styles.td, textAlign: "right" }}>
+                <ScoreBadge score={total} />
+              </td>
+              <td style={{ ...styles.td, textAlign: "right", opacity: 0.8 }}>
+                <ScoreBadge score={today} />
+              </td>
+              <td style={{ ...styles.td, textAlign: "right", color: C.khaki, fontSize: "0.85rem" }}>
+                {thru}
+              </td>
+            </tr>
+          );
+        })}
+
+        {cut.length > 0 && (
+          <tr>
+            <td colSpan={5} style={styles.cutBar}>
+              ✂ Cut — {cut.length} players eliminated
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+// ─── Weather Section ──────────────────────────────────────────────────────────
+
+function WeatherSection({ data, loading, error }) {
+  if (loading) return <Loading />;
+  if (error)   return <Err msg={error} />;
+  if (!data)   return null;
+
+  return (
+    <div style={styles.weatherBody}>
+      {/* Main temp row */}
+      <div style={styles.weatherTop}>
+        <span style={styles.weatherEmoji}>{data.icon}</span>
+        <div>
+          <div style={styles.weatherTemp}>{data.temp}</div>
+          <div style={styles.weatherDesc}>{data.description}</div>
+          <div style={styles.weatherLoc}>Augusta, GA · Live</div>
+        </div>
+      </div>
+
+      {/* Stat grid */}
+      <div style={styles.statGrid}>
+        {[
+          { label: "Wind",       value: data.wind      },
+          { label: "Humidity",   value: data.humidity  },
+          { label: "Feels Like", value: data.feelsLike },
+        ].map(({ label, value }) => (
+          <div key={label} style={styles.statBox}>
+            <div style={styles.statLabel}>{label}</div>
+            <div style={styles.statValue}>{value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export default function MastersDashboard() {
+
+  // ── Weather state ──
+  const [weather,        setWeather]        = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
+  const [weatherError,   setWeatherError]   = useState(null);
+
+  // ── Leaderboard state ──
+  const [leaderboard,        setLeaderboard]        = useState([]);
+  const [tournament,         setTournament]          = useState(null);
+  const [boardLoading,       setBoardLoading]        = useState(true);
+  const [boardError,         setBoardError]          = useState(null);
+
+  // ── Fetch both on mount ──
+  useEffect(() => {
+
+    // 1. Weather fetch
+    fetch(WEATHER_URL)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Weather API ${res.status}`);
+        return res.json();
+      })
+      .then((d) => {
+        setWeather({
+          temp:        `${Math.round(d.main.temp)}°F`,
+          feelsLike:   `${Math.round(d.main.feels_like)}°F`,
+          humidity:    `${d.main.humidity}%`,
+          wind:        `${Math.round(d.wind.speed)} mph`,
+          description: d.weather[0].description
+            .split(" ")
+            .map((w) => w[0].toUpperCase() + w.slice(1))
+            .join(" "),
+          icon: weatherIcon(d.weather[0].id),
+        });
+      })
+      .catch((e) => setWeatherError(e.message))
+      .finally(() => setWeatherLoading(false));
+
+    // 2. Golf leaderboard fetch
+    fetch(GOLF_URL, { method: "GET", headers: RAPIDAPI_HEADERS })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Golf API ${res.status}`);
+        return res.json();
+      })
+      .then((d) => {
+        setTournament(d.results.tournament);
+        setLeaderboard(d.results.leaderboard);
+      })
+      .catch((e) => setBoardError(e.message))
+      .finally(() => setBoardLoading(false));
+
+  }, []); // empty array = run once on mount
+
+  // ── Round subtitle ──
+  const roundLabel = tournament
+    ? `Round ${tournament.live_details.current_round} · ${
+        tournament.live_details.status === "completed"   ? "Final"       :
+        tournament.live_details.status === "inprogress"  ? "In Progress" :
+        tournament.live_details.status
+      }`
+    : null;
+
+  // ── Render ──
+  return (
+    <div style={styles.page}>
+
+      {/* ── Header ── */}
+      <header style={styles.header}>
+        <h1 style={styles.headerTitle}>The Masters Live Dashboard</h1>
+        <p style={styles.headerSub}>Augusta National Golf Club · April 2026</p>
+        <span style={styles.liveBadge}>● Live</span>
+      </header>
+
+      {/* ── Two-column layout ── */}
+      <main style={styles.main}>
+
+        {/* Left: leaderboard */}
+        <CardShell
+          title={tournament ? tournament.name : "Leaderboard"}
+          subtitle={roundLabel}
+        >
+          <LeaderboardSection
+            data={leaderboard}
+            tournament={tournament}
+            loading={boardLoading}
+            error={boardError}
+          />
+        </CardShell>
+
+        {/* Right: weather */}
+        <CardShell title="Course Weather">
+          <WeatherSection
+            data={weather}
+            loading={weatherLoading}
+            error={weatherError}
+          />
+        </CardShell>
+
+      </main>
+
+      <footer style={styles.footer}>
+        Augusta National Golf Club · Data via RapidAPI &amp; OpenWeather
+      </footer>
+    </div>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = {
-  app: {
+  page: {
     fontFamily: "'Georgia', serif",
-    backgroundColor: COLORS.lightKhaki,
+    backgroundColor: C.khakiLight,
     minHeight: "100vh",
-    color: COLORS.deepBlue,
+    color: C.blue,
   },
   header: {
-    backgroundColor: COLORS.mastersGreen,
-    color: COLORS.white,
+    backgroundColor: C.green,
+    color: C.white,
     textAlign: "center",
     padding: "24px 16px 16px",
-    borderBottom: `6px solid ${COLORS.yellow}`,
+    borderBottom: `6px solid ${C.yellow}`,
   },
   headerTitle: {
     fontSize: "2.4rem",
@@ -40,20 +303,20 @@ const styles = {
     letterSpacing: "0.05em",
     margin: 0,
   },
-  headerSubtitle: {
-    fontSize: "0.95rem",
-    color: COLORS.khaki,
+  headerSub: {
+    fontSize: "0.9rem",
+    color: C.khaki,
     marginTop: "6px",
     letterSpacing: "0.1em",
     textTransform: "uppercase",
   },
-  badge: {
+  liveBadge: {
     display: "inline-block",
-    backgroundColor: COLORS.yellow,
-    color: COLORS.deepBlue,
+    backgroundColor: C.yellow,
+    color: C.blue,
     fontSize: "0.75rem",
     fontWeight: "bold",
-    padding: "3px 10px",
+    padding: "3px 12px",
     borderRadius: "12px",
     marginTop: "10px",
     letterSpacing: "0.08em",
@@ -64,19 +327,19 @@ const styles = {
     margin: "0 auto",
     padding: "28px 16px",
     display: "grid",
-    gridTemplateColumns: "1fr 380px",
+    gridTemplateColumns: "1fr 360px",
     gap: "24px",
     alignItems: "start",
   },
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: C.white,
     borderRadius: "8px",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.10)",
+    boxShadow: "0 2px 12px rgba(0,0,0,0.09)",
     overflow: "hidden",
   },
-  cardHeader: {
-    backgroundColor: COLORS.mastersGreen,
-    color: COLORS.white,
+  cardHead: {
+    backgroundColor: C.green,
+    color: C.white,
     padding: "12px 20px",
     display: "flex",
     alignItems: "center",
@@ -84,417 +347,140 @@ const styles = {
   },
   cardTitle: {
     margin: 0,
-    fontSize: "1.1rem",
+    fontSize: "1.05rem",
     fontWeight: "bold",
     letterSpacing: "0.06em",
     textTransform: "uppercase",
   },
-  cardTitleAccent: {
-    width: "8px",
-    height: "8px",
-    borderRadius: "50%",
-    backgroundColor: COLORS.yellow,
-    display: "inline-block",
-    marginLeft: "8px",
+  cardSub: {
+    fontSize: "0.75rem",
+    color: C.khaki,
+    letterSpacing: "0.05em",
+  },
+  loading: {
+    textAlign: "center",
+    padding: "40px",
+    color: C.green,
+    fontSize: "0.95rem",
+    letterSpacing: "0.08em",
+  },
+  err: {
+    textAlign: "center",
+    padding: "24px",
+    color: C.red,
+    fontSize: "0.9rem",
   },
   table: {
     width: "100%",
     borderCollapse: "collapse",
   },
-  thead: {
-    backgroundColor: COLORS.lightKhaki,
-  },
   th: {
-    padding: "10px 16px",
+    padding: "9px 16px",
     textAlign: "left",
-    fontSize: "0.75rem",
+    fontSize: "0.72rem",
     fontWeight: "bold",
     textTransform: "uppercase",
     letterSpacing: "0.08em",
-    color: COLORS.mastersGreen,
-    borderBottom: `2px solid ${COLORS.khaki}`,
+    color: C.green,
+    borderBottom: `2px solid ${C.khaki}`,
   },
-  thRight: {
-    textAlign: "right",
-  },
-  tr: {
-    borderBottom: `1px solid ${COLORS.lightKhaki}`,
-  },
-  trHighlight: {
-    borderBottom: `1px solid ${COLORS.lightKhaki}`,
-    backgroundColor: "#FFF9E6",
+  row: {
+    borderBottom: `1px solid ${C.khakiLight}`,
   },
   td: {
-    padding: "12px 16px",
-    fontSize: "0.95rem",
+    padding: "11px 16px",
+    fontSize: "0.93rem",
   },
-  tdRight: {
-    textAlign: "right",
-  },
-  positionCell: {
+  pos: {
     fontWeight: "bold",
-    color: COLORS.mastersGreen,
-    width: "40px",
+    color: C.green,
+    width: "36px",
+  },
+  score: {
+    fontWeight: "bold",
+    fontSize: "1rem",
   },
   playerName: {
     fontWeight: "bold",
-    color: COLORS.deepBlue,
+    color: C.blue,
   },
-  playerCountry: {
-    fontSize: "0.78rem",
-    color: COLORS.khaki,
+  playerSub: {
+    fontSize: "0.75rem",
+    color: C.khaki,
     marginTop: "2px",
   },
-  scoreUnder: {
-    color: COLORS.mastersGreen,
-    fontWeight: "bold",
-    fontSize: "1rem",
-  },
-  scoreOver: {
-    color: "#C0392B",
-    fontWeight: "bold",
-    fontSize: "1rem",
-  },
-  scoreEven: {
-    color: COLORS.deepBlue,
-    fontWeight: "bold",
-    fontSize: "1rem",
-  },
-  todayCell: {
-    color: COLORS.deepBlue,
-    fontSize: "0.9rem",
-  },
-  thruCell: {
-    color: COLORS.khaki,
-    fontSize: "0.85rem",
-  },
-  cutLine: {
-    backgroundColor: COLORS.azalea,
+  cutBar: {
+    backgroundColor: C.azalea,
     textAlign: "center",
-    padding: "6px 16px",
-    fontSize: "0.78rem",
+    padding: "5px 16px",
+    fontSize: "0.75rem",
     fontWeight: "bold",
     letterSpacing: "0.08em",
     textTransform: "uppercase",
-    color: COLORS.deepBlue,
-  },
-  loadingBox: {
-    textAlign: "center",
-    padding: "40px 20px",
-    color: COLORS.mastersGreen,
-    fontSize: "1rem",
-    letterSpacing: "0.08em",
-  },
-  errorBox: {
-    textAlign: "center",
-    padding: "24px",
-    color: "#C0392B",
-    fontSize: "0.9rem",
-  },
-  weatherCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: "8px",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.10)",
-    overflow: "hidden",
+    color: C.blue,
   },
   weatherBody: {
     padding: "20px",
   },
-  weatherMain: {
+  weatherTop: {
     display: "flex",
     alignItems: "center",
     gap: "16px",
-    marginBottom: "20px",
     paddingBottom: "20px",
-    borderBottom: `1px solid ${COLORS.lightKhaki}`,
+    marginBottom: "20px",
+    borderBottom: `1px solid ${C.khakiLight}`,
   },
-  weatherIcon: {
+  weatherEmoji: {
     fontSize: "3.5rem",
     lineHeight: 1,
   },
   weatherTemp: {
     fontSize: "2.4rem",
     fontWeight: "bold",
-    color: COLORS.deepBlue,
+    color: C.blue,
     lineHeight: 1,
   },
   weatherDesc: {
     fontSize: "0.95rem",
-    color: COLORS.mastersGreen,
+    color: C.green,
     marginTop: "4px",
     fontStyle: "italic",
   },
-  weatherLocation: {
-    fontSize: "0.78rem",
-    color: COLORS.khaki,
+  weatherLoc: {
+    fontSize: "0.75rem",
+    color: C.khaki,
     textTransform: "uppercase",
     letterSpacing: "0.08em",
     marginTop: "4px",
   },
-  weatherGrid: {
+  statGrid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
     gap: "12px",
   },
-  weatherStat: {
-    backgroundColor: COLORS.lightKhaki,
+  statBox: {
+    backgroundColor: C.khakiLight,
     borderRadius: "6px",
     padding: "10px 12px",
   },
-  weatherStatLabel: {
-    fontSize: "0.7rem",
+  statLabel: {
+    fontSize: "0.68rem",
     textTransform: "uppercase",
     letterSpacing: "0.08em",
-    color: COLORS.khaki,
+    color: C.khaki,
     marginBottom: "4px",
   },
-  weatherStatValue: {
+  statValue: {
     fontSize: "1.1rem",
     fontWeight: "bold",
-    color: COLORS.deepBlue,
+    color: C.blue,
   },
   footer: {
-    backgroundColor: COLORS.darkGreen,
-    color: COLORS.khaki,
+    backgroundColor: C.greenDark,
+    color: C.khaki,
     textAlign: "center",
     padding: "14px",
     fontSize: "0.78rem",
     letterSpacing: "0.06em",
   },
 };
-
-function calcTotalToPar(rounds) {
-  return rounds.reduce((sum, r) => sum + (r.total_to_par || 0), 0);
-}
-
-function getTodayScore(player) {
-  const round = player.rounds.find((r) => r.round_number === player.current_round);
-  return round ? round.total_to_par : null;
-}
-
-function getWeatherIcon(code) {
-  if (!code) return "🌤";
-  if (code >= 200 && code < 300) return "⛈";
-  if (code >= 300 && code < 400) return "🌦";
-  if (code >= 500 && code < 600) return "🌧";
-  if (code >= 600 && code < 700) return "❄️";
-  if (code >= 700 && code < 800) return "🌫";
-  if (code === 800) return "☀️";
-  if (code > 800) return "⛅";
-  return "🌤";
-}
-
-function ScoreDisplay({ score }) {
-  if (score === null || score === undefined)
-    return <span style={styles.scoreEven}>-</span>;
-  if (score < 0) return <span style={styles.scoreUnder}>{score}</span>;
-  if (score > 0) return <span style={styles.scoreOver}>+{score}</span>;
-  return <span style={styles.scoreEven}>E</span>;
-}
-
-function Leaderboard() {
-  const [leaderboard, setLeaderboard] = React.useState([]);
-  const [tournament, setTournament] = React.useState(null);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(null);
-
-  React.useEffect(() => {
-    fetch(GOLF_URL, {
-      method: "GET",
-      headers: {
-        "x-rapidapi-host": "golf-leaderboard-data.p.rapidapi.com",
-        "x-rapidapi-key": RAPIDAPI_KEY,
-      },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(`Golf API error: ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
-        setTournament(data.results.tournament);
-        setLeaderboard(data.results.leaderboard);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
-
-  const activeRows = leaderboard.filter((p) => p.status === "active");
-  const cutRows = leaderboard.filter((p) => p.status === "cut");
-
-  const roundLabel = tournament
-    ? `Round ${tournament.live_details.current_round} · ${
-        tournament.live_details.status === "completed"
-          ? "Final"
-          : tournament.live_details.status === "inprogress"
-          ? "In Progress"
-          : tournament.live_details.status
-      }`
-    : "Live";
-
-  return (
-    <div style={styles.card}>
-      <div style={styles.cardHeader}>
-        <h2 style={styles.cardTitle}>
-          {tournament ? tournament.name : "Leaderboard"}
-          <span style={styles.cardTitleAccent} />
-        </h2>
-        <span style={{ fontSize: "0.78rem", color: COLORS.khaki, letterSpacing: "0.06em" }}>
-          {roundLabel}
-        </span>
-      </div>
-
-      {loading && <div style={styles.loadingBox}>Loading...</div>}
-      {error && <div style={styles.errorBox}>⚠ {error}</div>}
-
-      {!loading && !error && (
-        <table style={styles.table}>
-          <thead style={styles.thead}>
-            <tr>
-              <th style={styles.th}>Pos</th>
-              <th style={styles.th}>Player</th>
-              <th style={{ ...styles.th, ...styles.thRight }}>Total</th>
-              <th style={{ ...styles.th, ...styles.thRight }}>Today</th>
-              <th style={{ ...styles.th, ...styles.thRight }}>Thru</th>
-            </tr>
-          </thead>
-          <tbody>
-            {activeRows.map((player) => {
-              const total = calcTotalToPar(player.rounds);
-              const today = getTodayScore(player);
-              const thru =
-                player.holes_played === 18 ? "F" : player.holes_played === 0 ? "-" : player.holes_played;
-              const rowStyle = player.position === 1 ? styles.trHighlight : styles.tr;
-
-              return (
-                <tr key={player.player_id} style={rowStyle}>
-                  <td style={{ ...styles.td, ...styles.positionCell }}>{player.position}</td>
-                  <td style={styles.td}>
-                    <div style={styles.playerName}>{player.first_name} {player.last_name}</div>
-                    <div style={styles.playerCountry}>{player.country}</div>
-                  </td>
-                  <td style={{ ...styles.td, ...styles.tdRight }}>
-                    <ScoreDisplay score={total} />
-                  </td>
-                  <td style={{ ...styles.td, ...styles.tdRight, ...styles.todayCell }}>
-                    <ScoreDisplay score={today} />
-                  </td>
-                  <td style={{ ...styles.td, ...styles.tdRight, ...styles.thruCell }}>
-                    {thru}
-                  </td>
-                </tr>
-              );
-            })}
-
-            {cutRows.length > 0 && (
-              <tr>
-                <td colSpan={5} style={styles.cutLine}>
-                  ✂ Cut — {cutRows.length} players eliminated
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-}
-
-function WeatherPanel() {
-  const [weather, setWeather] = React.useState(null);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(null);
-
-  React.useEffect(() => {
-    fetch(WEATHER_URL)
-      .then((res) => {
-        if (!res.ok) throw new Error(`Weather API error: ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
-        setWeather({
-          temp: `${Math.round(data.main.temp)}°F`,
-          feelsLike: `${Math.round(data.main.feels_like)}°F`,
-          description: data.weather[0].description
-            .split(" ")
-            .map((w) => w[0].toUpperCase() + w.slice(1))
-            .join(" "),
-          humidity: `${data.main.humidity}%`,
-          wind: `${Math.round(data.wind.speed)} mph`,
-          icon: getWeatherIcon(data.weather[0].id),
-        });
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
-
-  return (
-    <div style={styles.weatherCard}>
-      <div style={styles.cardHeader}>
-        <h2 style={styles.cardTitle}>
-          Course Weather
-          <span style={styles.cardTitleAccent} />
-        </h2>
-      </div>
-
-      <div style={styles.weatherBody}>
-        {loading && <div style={styles.loadingBox}>Loading...</div>}
-        {error && <div style={styles.errorBox}>⚠ {error}</div>}
-
-        {!loading && !error && weather && (
-          <>
-            <div style={styles.weatherMain}>
-              <div style={styles.weatherIcon}>{weather.icon}</div>
-              <div>
-                <div style={styles.weatherTemp}>{weather.temp}</div>
-                <div style={styles.weatherDesc}>{weather.description}</div>
-                <div style={styles.weatherLocation}>Augusta, GA · Live</div>
-              </div>
-            </div>
-
-            <div style={styles.weatherGrid}>
-              <div style={styles.weatherStat}>
-                <div style={styles.weatherStatLabel}>Wind</div>
-                <div style={styles.weatherStatValue}>{weather.wind}</div>
-              </div>
-              <div style={styles.weatherStat}>
-                <div style={styles.weatherStatLabel}>Humidity</div>
-                <div style={styles.weatherStatValue}>{weather.humidity}</div>
-              </div>
-              <div style={styles.weatherStat}>
-                <div style={styles.weatherStatLabel}>Feels Like</div>
-                <div style={styles.weatherStatValue}>{weather.feelsLike}</div>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-export default function MastersDashboard() {
-  return (
-    <div style={styles.app}>
-      <header style={styles.header}>
-        <h1 style={styles.headerTitle}>The Masters Live Dashboard</h1>
-        <p style={styles.headerSubtitle}>Augusta National Golf Club · April 2026</p>
-        <span style={styles.badge}>● Live</span>
-      </header>
-
-      <main style={styles.main}>
-        <Leaderboard />
-        <WeatherPanel />
-      </main>
-
-      <footer style={styles.footer}>
-        Augusta National Golf Club · Data via RapidAPI & OpenWeather
-      </footer>
-    </div>
-  );
-}
