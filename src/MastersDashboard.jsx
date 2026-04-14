@@ -101,14 +101,6 @@ const GLOBAL_CSS = `
   .refresh-btn:active { transform: scale(0.93); }
   .refresh-btn.spinning svg { animation: spin 0.7s linear infinite; }
 
-  /* Collapsible card body */
-  .card-body {
-    overflow: hidden;
-    transition: max-height 0.35s ease, opacity 0.25s ease;
-  }
-  .card-body.expanded  { max-height: 4000px; opacity: 1; }
-  .card-body.collapsed { max-height: 0;      opacity: 0; }
-
   /* Chevron rotates when collapsed */
   .chevron { transition: transform 0.3s ease; display: inline-flex; }
   .chevron.collapsed { transform: rotate(-90deg); }
@@ -228,8 +220,8 @@ function Card({ title, subtitle, accent, children, onRefresh, refreshing, meta, 
           )}
         </div>
       </div>
-      <div className={`card-body ${collapsed ? "collapsed" : "expanded"}`}>
-        {children}
+      <div>
+        {typeof children === "function" ? children(collapsed) : children}
         <CacheBar meta={meta} now={now} />
       </div>
     </div>
@@ -283,12 +275,14 @@ function PosBadge({ position }) {
 
 // ─── Leaderboard Section ──────────────────────────────────────────────────────
 
-function LeaderboardSection({ data, loading, error }) {
+function LeaderboardSection({ data, loading, error, collapsed }) {
   if (loading) return <Loading />;
   if (error)   return <ErrorMsg msg={error} />;
 
-  const active = data.filter((p) => p.status === "active");
-  const cut    = data.filter((p) => p.status === "cut");
+  const active       = data.filter((p) => p.status === "active");
+  const cut          = data.filter((p) => p.status === "cut");
+  const displayed    = collapsed ? active.slice(0, 10) : active;
+  const hiddenCount  = collapsed ? Math.max(0, active.length - 10) : 0;
 
   return (
     <div style={{ overflowX: "auto" }}>
@@ -303,7 +297,7 @@ function LeaderboardSection({ data, loading, error }) {
           </tr>
         </thead>
         <tbody>
-          {active.map((p, i) => {
+          {displayed.map((p, i) => {
             const total      = totalScore(p.rounds);
             const todayRound = p.rounds.find((r) => r.round_number === p.current_round);
             const today      = todayRound ? todayRound.total_to_par : null;
@@ -339,7 +333,15 @@ function LeaderboardSection({ data, loading, error }) {
             );
           })}
 
-          {cut.length > 0 && (
+          {collapsed && hiddenCount > 0 && (
+            <tr>
+              <td colSpan={5} style={S.moreRow}>
+                +{hiddenCount} more players · click ∧ to expand
+              </td>
+            </tr>
+          )}
+
+          {!collapsed && cut.length > 0 && (
             <tr>
               <td colSpan={5} style={S.cutBar}>
                 ✂&nbsp;&nbsp;Cut — {cut.length} players eliminated
@@ -524,11 +526,14 @@ export default function MastersDashboard() {
           now={now}
           collapsible
         >
-          <LeaderboardSection
-            data={leaderboard}
-            loading={boardLoading}
-            error={boardError}
-          />
+          {(collapsed) => (
+            <LeaderboardSection
+              data={leaderboard}
+              loading={boardLoading}
+              error={boardError}
+              collapsed={collapsed}
+            />
+          )}
         </Card>
 
         <div style={S.sidebar}>
@@ -763,6 +768,19 @@ const S = {
   // Player
   playerName: { fontWeight: 600, color: C.textDark, fontSize: "0.93rem" },
   playerSub:  { fontSize: "0.72rem", color: C.silver, marginTop: 2, fontWeight: 500, letterSpacing: "0.04em" },
+
+  // "N more players" row shown when collapsed
+  moreRow: {
+    textAlign: "center",
+    padding: "9px 16px",
+    fontSize: "0.72rem",
+    fontWeight: 600,
+    letterSpacing: "0.06em",
+    color: C.azure,
+    backgroundColor: "#EEF2FA",
+    borderTop: `1px solid ${C.border}`,
+    cursor: "default",
+  },
 
   // Cut bar
   cutBar: {
