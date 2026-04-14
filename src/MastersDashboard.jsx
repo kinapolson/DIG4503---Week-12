@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from "react";
 
 // ─── API Config ───────────────────────────────────────────────────────────────
+// Keys are injected at build time from .env (local) or the Netlify dashboard (deployed).
+// If either is undefined the fetch is skipped and a clear error is shown instead.
+const OPENWEATHER_KEY = process.env.REACT_APP_OPENWEATHER_KEY;
+const RAPIDAPI_KEY    = process.env.REACT_APP_RAPIDAPI_KEY;
+
 const WEATHER_URL =
-  `https://api.openweathermap.org/data/2.5/weather?q=Augusta,GA,US&units=imperial&appid=${process.env.REACT_APP_OPENWEATHER_KEY}`;
+  `https://api.openweathermap.org/data/2.5/weather?q=Augusta,GA,US&units=imperial&appid=${OPENWEATHER_KEY}`;
 
 const GOLF_URL =
   `https://golf-leaderboard-data.p.rapidapi.com/leaderboard/25`;
 
 const RAPIDAPI_HEADERS = {
   "x-rapidapi-host": "golf-leaderboard-data.p.rapidapi.com",
-  "x-rapidapi-key": process.env.REACT_APP_RAPIDAPI_KEY,
+  "x-rapidapi-key": RAPIDAPI_KEY,
 };
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
@@ -191,39 +196,52 @@ export default function MastersDashboard() {
   useEffect(() => {
 
     // 1. Weather fetch
-    fetch(WEATHER_URL)
-      .then((res) => {
-        if (!res.ok) throw new Error(`Weather API ${res.status}`);
-        return res.json();
-      })
-      .then((d) => {
-        setWeather({
-          temp:        `${Math.round(d.main.temp)}°F`,
-          feelsLike:   `${Math.round(d.main.feels_like)}°F`,
-          humidity:    `${d.main.humidity}%`,
-          wind:        `${Math.round(d.wind.speed)} mph`,
-          description: d.weather[0].description
-            .split(" ")
-            .map((w) => w[0].toUpperCase() + w.slice(1))
-            .join(" "),
-          icon: weatherIcon(d.weather[0].id),
-        });
-      })
-      .catch((e) => setWeatherError(e.message))
-      .finally(() => setWeatherLoading(false));
+    if (!OPENWEATHER_KEY) {
+      setWeatherError("REACT_APP_OPENWEATHER_KEY is not set. Add it to .env (local) or the Netlify environment variables dashboard.");
+      setWeatherLoading(false);
+    } else {
+      fetch(WEATHER_URL)
+        .then((res) => {
+          if (res.status === 401) throw new Error("Invalid OpenWeather API key (401). Check REACT_APP_OPENWEATHER_KEY.");
+          if (!res.ok)            throw new Error(`Weather API error: ${res.status}`);
+          return res.json();
+        })
+        .then((d) => {
+          setWeather({
+            temp:        `${Math.round(d.main.temp)}°F`,
+            feelsLike:   `${Math.round(d.main.feels_like)}°F`,
+            humidity:    `${d.main.humidity}%`,
+            wind:        `${Math.round(d.wind.speed)} mph`,
+            description: d.weather[0].description
+              .split(" ")
+              .map((w) => w[0].toUpperCase() + w.slice(1))
+              .join(" "),
+            icon: weatherIcon(d.weather[0].id),
+          });
+        })
+        .catch((e) => setWeatherError(e.message))
+        .finally(() => setWeatherLoading(false));
+    }
 
     // 2. Golf leaderboard fetch
-    fetch(GOLF_URL, { method: "GET", headers: RAPIDAPI_HEADERS })
-      .then((res) => {
-        if (!res.ok) throw new Error(`Golf API ${res.status}`);
-        return res.json();
-      })
-      .then((d) => {
-        setTournament(d.results.tournament);
-        setLeaderboard(d.results.leaderboard);
-      })
-      .catch((e) => setBoardError(e.message))
-      .finally(() => setBoardLoading(false));
+    if (!RAPIDAPI_KEY) {
+      setBoardError("REACT_APP_RAPIDAPI_KEY is not set. Add it to .env (local) or the Netlify environment variables dashboard.");
+      setBoardLoading(false);
+    } else {
+      fetch(GOLF_URL, { method: "GET", headers: RAPIDAPI_HEADERS })
+        .then((res) => {
+          if (res.status === 403) throw new Error("RapidAPI key rejected (403). Check REACT_APP_RAPIDAPI_KEY and confirm you are subscribed to the Golf Leaderboard Data API on rapidapi.com.");
+          if (res.status === 401) throw new Error("RapidAPI key invalid (401). Check REACT_APP_RAPIDAPI_KEY.");
+          if (!res.ok)            throw new Error(`Golf API error: ${res.status}`);
+          return res.json();
+        })
+        .then((d) => {
+          setTournament(d.results.tournament);
+          setLeaderboard(d.results.leaderboard);
+        })
+        .catch((e) => setBoardError(e.message))
+        .finally(() => setBoardLoading(false));
+    }
 
   }, []); // empty array = run once on mount
 
