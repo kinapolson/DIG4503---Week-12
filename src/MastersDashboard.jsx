@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from "react";
 
 // ─── API Config ───────────────────────────────────────────────────────────────
-// Keys are injected at build time from .env (local) or the Netlify dashboard (deployed).
-// If either is undefined the fetch is skipped and a clear error is shown instead.
 const OPENWEATHER_KEY = process.env.REACT_APP_OPENWEATHER_KEY;
 const RAPIDAPI_KEY    = process.env.REACT_APP_RAPIDAPI_KEY;
 
 const WEATHER_URL =
   `https://api.openweathermap.org/data/2.5/weather?q=Augusta,GA,US&units=imperial&appid=${OPENWEATHER_KEY}`;
 
-const GOLF_URL =
-  `https://golf-leaderboard-data.p.rapidapi.com/leaderboard/25`;
+const GOLF_URL = `https://golf-leaderboard-data.p.rapidapi.com/leaderboard/25`;
 
 const RAPIDAPI_HEADERS = {
   "x-rapidapi-host": "golf-leaderboard-data.p.rapidapi.com",
@@ -21,18 +18,34 @@ const RAPIDAPI_HEADERS = {
 const C = {
   green:      "#006747",
   greenDark:  "#004D35",
+  greenMid:   "#00593C",
   yellow:     "#F5D130",
   azalea:     "#E8A0B0",
   blue:       "#1B3A6B",
   white:      "#FFFFFF",
   khaki:      "#C2B280",
-  khakiLight: "#EDE8DA",
-  red:        "#C0392B",
+  khakiLight: "#F0EBE0",
+  khakiBg:    "#F7F3EC",
+  red:        "#B83232",
+  silver:     "#8C8C8C",
+  rowAlt:     "#FDFBF7",
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Keyframe injection (loading animation) ───────────────────────────────────
+const KEYFRAMES = `
+  @keyframes pulse {
+    0%, 100% { opacity: 1;   transform: scale(1);    }
+    50%       { opacity: 0.3; transform: scale(0.75); }
+  }
+  @keyframes fadein {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0);   }
+  }
+  .lb-row { animation: fadein 0.3s ease both; }
+  .lb-row:hover { background-color: #F5F0E8 !important; }
+`;
 
-// The API does not populate player.total_to_par — sum from rounds[] instead
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function totalScore(rounds = []) {
   return rounds.reduce((sum, r) => sum + (r.total_to_par || 0), 0);
 }
@@ -44,24 +57,28 @@ function fmtScore(n) {
 }
 
 function weatherIcon(id) {
-  if (!id) return "🌤";
+  if (!id)              return "🌤";
   if (id >= 200 && id < 300) return "⛈";
   if (id >= 300 && id < 400) return "🌦";
   if (id >= 500 && id < 600) return "🌧";
   if (id >= 600 && id < 700) return "❄️";
   if (id >= 700 && id < 800) return "🌫";
-  if (id === 800) return "☀️";
+  if (id === 800)        return "☀️";
   return "⛅";
 }
 
-// ─── Shared UI ────────────────────────────────────────────────────────────────
+// ─── Shared UI Primitives ─────────────────────────────────────────────────────
 
-function CardShell({ title, subtitle, children }) {
+function Card({ title, subtitle, accent, children }) {
   return (
-    <div style={styles.card}>
-      <div style={styles.cardHead}>
-        <h2 style={styles.cardTitle}>{title}</h2>
-        {subtitle && <span style={styles.cardSub}>{subtitle}</span>}
+    <div style={S.card}>
+      {/* Yellow top accent bar */}
+      <div style={{ height: 4, backgroundColor: accent || C.yellow }} />
+      <div style={S.cardHead}>
+        <div>
+          <h2 style={S.cardTitle}>{title}</h2>
+          {subtitle && <span style={S.cardSub}>{subtitle}</span>}
+        </div>
       </div>
       {children}
     </div>
@@ -69,75 +86,128 @@ function CardShell({ title, subtitle, children }) {
 }
 
 function Loading() {
-  return <div style={styles.loading}>Loading...</div>;
+  const dotStyle = (delay) => ({
+    display: "inline-block",
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    backgroundColor: C.green,
+    margin: "0 4px",
+    animation: `pulse 1.2s ease-in-out ${delay}s infinite`,
+  });
+  return (
+    <div style={S.loadingWrap}>
+      <span style={dotStyle(0)} />
+      <span style={dotStyle(0.2)} />
+      <span style={dotStyle(0.4)} />
+    </div>
+  );
 }
 
-function Err({ msg }) {
-  return <div style={styles.err}>⚠ {msg}</div>;
+function ErrorMsg({ msg }) {
+  return (
+    <div style={S.errWrap}>
+      <div style={S.errIcon}>⚠</div>
+      <div style={S.errText}>{msg}</div>
+    </div>
+  );
 }
 
-function ScoreBadge({ score }) {
-  const color = score < 0 ? C.green : score > 0 ? C.red : C.blue;
-  return <span style={{ ...styles.score, color }}>{fmtScore(score)}</span>;
+// Score displayed as a colored pill
+function ScorePill({ score }) {
+  if (score === null || score === undefined) {
+    return <span style={{ ...S.pill, backgroundColor: "#E0E0E0", color: C.silver }}>–</span>;
+  }
+  const bg    = score < 0 ? C.green : score > 0 ? C.red : "#64748B";
+  const label = fmtScore(score);
+  return <span style={{ ...S.pill, backgroundColor: bg, color: C.white }}>{label}</span>;
+}
+
+// Position badge — gold/silver/bronze for top 3, plain for rest
+function PosBadge({ position }) {
+  const medal = position === 1 ? { bg: "#C9963A", color: C.white }
+              : position === 2 ? { bg: "#9E9E9E", color: C.white }
+              : position === 3 ? { bg: "#A0744C", color: C.white }
+              : null;
+
+  if (medal) {
+    return (
+      <span style={{ ...S.posBadge, backgroundColor: medal.bg, color: medal.color }}>
+        {position}
+      </span>
+    );
+  }
+  return <span style={S.posPlain}>{position}</span>;
 }
 
 // ─── Leaderboard Section ──────────────────────────────────────────────────────
 
-function LeaderboardSection({ data, tournament, loading, error }) {
+function LeaderboardSection({ data, loading, error }) {
   if (loading) return <Loading />;
-  if (error)   return <Err msg={error} />;
+  if (error)   return <ErrorMsg msg={error} />;
 
   const active = data.filter((p) => p.status === "active");
   const cut    = data.filter((p) => p.status === "cut");
 
   return (
-    <table style={styles.table}>
-      <thead>
-        <tr style={{ backgroundColor: C.khakiLight }}>
-          <th style={styles.th}>Pos</th>
-          <th style={styles.th}>Player</th>
-          <th style={{ ...styles.th, textAlign: "right" }}>Total</th>
-          <th style={{ ...styles.th, textAlign: "right" }}>Today</th>
-          <th style={{ ...styles.th, textAlign: "right" }}>Thru</th>
-        </tr>
-      </thead>
-      <tbody>
-        {active.map((p) => {
-          const total = totalScore(p.rounds);
-          const todayRound = p.rounds.find((r) => r.round_number === p.current_round);
-          const today = todayRound ? todayRound.total_to_par : null;
-          const thru  = p.holes_played === 18 ? "F" : p.holes_played === 0 ? "-" : p.holes_played;
-          const rowBg = p.position === 1 ? "#FFFBEA" : C.white;
+    <div style={{ overflowX: "auto" }}>
+      <table style={S.table}>
+        <thead>
+          <tr style={{ backgroundColor: C.khakiLight }}>
+            <th style={{ ...S.th, width: 52 }}>Pos</th>
+            <th style={S.th}>Player</th>
+            <th style={{ ...S.th, textAlign: "center", width: 76 }}>Total</th>
+            <th style={{ ...S.th, textAlign: "center", width: 76 }}>Today</th>
+            <th style={{ ...S.th, textAlign: "center", width: 60 }}>Thru</th>
+          </tr>
+        </thead>
+        <tbody>
+          {active.map((p, i) => {
+            const total      = totalScore(p.rounds);
+            const todayRound = p.rounds.find((r) => r.round_number === p.current_round);
+            const today      = todayRound ? todayRound.total_to_par : null;
+            const thru       = p.holes_played === 18 ? "F"
+                             : p.holes_played === 0  ? "–"
+                             : p.holes_played;
+            const isLeader   = p.position === 1;
+            const rowBg      = isLeader ? "#FFFBEF" : i % 2 === 0 ? C.white : C.rowAlt;
 
-          return (
-            <tr key={p.player_id} style={{ ...styles.row, backgroundColor: rowBg }}>
-              <td style={{ ...styles.td, ...styles.pos }}>{p.position}</td>
-              <td style={styles.td}>
-                <div style={styles.playerName}>{p.first_name} {p.last_name}</div>
-                <div style={styles.playerSub}>{p.country}</div>
-              </td>
-              <td style={{ ...styles.td, textAlign: "right" }}>
-                <ScoreBadge score={total} />
-              </td>
-              <td style={{ ...styles.td, textAlign: "right", opacity: 0.8 }}>
-                <ScoreBadge score={today} />
-              </td>
-              <td style={{ ...styles.td, textAlign: "right", color: C.khaki, fontSize: "0.85rem" }}>
-                {thru}
+            return (
+              <tr
+                key={p.player_id}
+                className="lb-row"
+                style={{ ...S.row, backgroundColor: rowBg, animationDelay: `${i * 0.04}s` }}
+              >
+                <td style={{ ...S.td, textAlign: "center" }}>
+                  <PosBadge position={p.position} />
+                </td>
+                <td style={S.td}>
+                  <div style={S.playerName}>{p.first_name} {p.last_name}</div>
+                  <div style={S.playerSub}>{p.country}</div>
+                </td>
+                <td style={{ ...S.td, textAlign: "center" }}>
+                  <ScorePill score={total} />
+                </td>
+                <td style={{ ...S.td, textAlign: "center", opacity: 0.85 }}>
+                  <ScorePill score={today} />
+                </td>
+                <td style={{ ...S.td, textAlign: "center", color: C.silver, fontSize: "0.85rem", fontWeight: 600 }}>
+                  {thru}
+                </td>
+              </tr>
+            );
+          })}
+
+          {cut.length > 0 && (
+            <tr>
+              <td colSpan={5} style={S.cutBar}>
+                ✂&nbsp;&nbsp;Cut — {cut.length} players eliminated
               </td>
             </tr>
-          );
-        })}
-
-        {cut.length > 0 && (
-          <tr>
-            <td colSpan={5} style={styles.cutBar}>
-              ✂ Cut — {cut.length} players eliminated
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -145,31 +215,38 @@ function LeaderboardSection({ data, tournament, loading, error }) {
 
 function WeatherSection({ data, loading, error }) {
   if (loading) return <Loading />;
-  if (error)   return <Err msg={error} />;
+  if (error)   return <ErrorMsg msg={error} />;
   if (!data)   return null;
 
+  const stats = [
+    { icon: "💨", label: "Wind",       value: data.wind      },
+    { icon: "💧", label: "Humidity",   value: data.humidity  },
+    { icon: "🌡️", label: "Feels Like", value: data.feelsLike },
+  ];
+
   return (
-    <div style={styles.weatherBody}>
-      {/* Main temp row */}
-      <div style={styles.weatherTop}>
-        <span style={styles.weatherEmoji}>{data.icon}</span>
-        <div>
-          <div style={styles.weatherTemp}>{data.temp}</div>
-          <div style={styles.weatherDesc}>{data.description}</div>
-          <div style={styles.weatherLoc}>Augusta, GA · Live</div>
+    <div style={S.weatherBody}>
+
+      {/* Hero row */}
+      <div style={S.weatherHero}>
+        <div style={S.weatherEmoji}>{data.icon}</div>
+        <div style={S.weatherInfo}>
+          <div style={S.weatherTemp}>{data.temp}</div>
+          <div style={S.weatherDesc}>{data.description}</div>
+          <div style={S.weatherLoc}>📍 Augusta, GA &nbsp;·&nbsp; Live</div>
         </div>
       </div>
 
-      {/* Stat grid */}
-      <div style={styles.statGrid}>
-        {[
-          { label: "Wind",       value: data.wind      },
-          { label: "Humidity",   value: data.humidity  },
-          { label: "Feels Like", value: data.feelsLike },
-        ].map(({ label, value }) => (
-          <div key={label} style={styles.statBox}>
-            <div style={styles.statLabel}>{label}</div>
-            <div style={styles.statValue}>{value}</div>
+      {/* Divider */}
+      <div style={S.divider} />
+
+      {/* Stat tiles */}
+      <div style={S.statGrid}>
+        {stats.map(({ icon, label, value }) => (
+          <div key={label} style={S.statTile}>
+            <div style={S.statIcon}>{icon}</div>
+            <div style={S.statValue}>{value}</div>
+            <div style={S.statLabel}>{label}</div>
           </div>
         ))}
       </div>
@@ -181,28 +258,25 @@ function WeatherSection({ data, loading, error }) {
 
 export default function MastersDashboard() {
 
-  // ── Weather state ──
   const [weather,        setWeather]        = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
   const [weatherError,   setWeatherError]   = useState(null);
 
-  // ── Leaderboard state ──
-  const [leaderboard,        setLeaderboard]        = useState([]);
-  const [tournament,         setTournament]          = useState(null);
-  const [boardLoading,       setBoardLoading]        = useState(true);
-  const [boardError,         setBoardError]          = useState(null);
+  const [leaderboard,  setLeaderboard]  = useState([]);
+  const [tournament,   setTournament]   = useState(null);
+  const [boardLoading, setBoardLoading] = useState(true);
+  const [boardError,   setBoardError]   = useState(null);
 
-  // ── Fetch both on mount ──
   useEffect(() => {
 
-    // 1. Weather fetch
+    // 1. Weather
     if (!OPENWEATHER_KEY) {
-      setWeatherError("REACT_APP_OPENWEATHER_KEY is not set. Add it to .env (local) or the Netlify environment variables dashboard.");
+      setWeatherError("REACT_APP_OPENWEATHER_KEY is not set. Add it to .env or the Netlify dashboard.");
       setWeatherLoading(false);
     } else {
       fetch(WEATHER_URL)
         .then((res) => {
-          if (res.status === 401) throw new Error("Invalid OpenWeather API key (401). Check REACT_APP_OPENWEATHER_KEY.");
+          if (res.status === 401) throw new Error("Invalid OpenWeather API key (401).");
           if (!res.ok)            throw new Error(`Weather API error: ${res.status}`);
           return res.json();
         })
@@ -213,9 +287,7 @@ export default function MastersDashboard() {
             humidity:    `${d.main.humidity}%`,
             wind:        `${Math.round(d.wind.speed)} mph`,
             description: d.weather[0].description
-              .split(" ")
-              .map((w) => w[0].toUpperCase() + w.slice(1))
-              .join(" "),
+              .split(" ").map((w) => w[0].toUpperCase() + w.slice(1)).join(" "),
             icon: weatherIcon(d.weather[0].id),
           });
         })
@@ -223,15 +295,15 @@ export default function MastersDashboard() {
         .finally(() => setWeatherLoading(false));
     }
 
-    // 2. Golf leaderboard fetch
+    // 2. Golf leaderboard
     if (!RAPIDAPI_KEY) {
-      setBoardError("REACT_APP_RAPIDAPI_KEY is not set. Add it to .env (local) or the Netlify environment variables dashboard.");
+      setBoardError("REACT_APP_RAPIDAPI_KEY is not set. Add it to .env or the Netlify dashboard.");
       setBoardLoading(false);
     } else {
       fetch(GOLF_URL, { method: "GET", headers: RAPIDAPI_HEADERS })
         .then((res) => {
-          if (res.status === 403) throw new Error("RapidAPI key rejected (403). Check REACT_APP_RAPIDAPI_KEY and confirm you are subscribed to the Golf Leaderboard Data API on rapidapi.com.");
-          if (res.status === 401) throw new Error("RapidAPI key invalid (401). Check REACT_APP_RAPIDAPI_KEY.");
+          if (res.status === 403) throw new Error("RapidAPI key rejected (403). Confirm your Golf Leaderboard subscription at rapidapi.com.");
+          if (res.status === 401) throw new Error("RapidAPI key invalid (401).");
           if (!res.ok)            throw new Error(`Golf API error: ${res.status}`);
           return res.json();
         })
@@ -243,57 +315,66 @@ export default function MastersDashboard() {
         .finally(() => setBoardLoading(false));
     }
 
-  }, []); // empty array = run once on mount
+  }, []);
 
-  // ── Round subtitle ──
   const roundLabel = tournament
-    ? `Round ${tournament.live_details.current_round} · ${
-        tournament.live_details.status === "completed"   ? "Final"       :
-        tournament.live_details.status === "inprogress"  ? "In Progress" :
+    ? `Round ${tournament.live_details.current_round} of ${tournament.live_details.total_rounds} · ${
+        tournament.live_details.status === "completed"  ? "Final"       :
+        tournament.live_details.status === "inprogress" ? "In Progress" :
         tournament.live_details.status
       }`
     : null;
 
-  // ── Render ──
   return (
-    <div style={styles.page}>
+    <div style={S.page}>
+      <style>{KEYFRAMES}</style>
 
       {/* ── Header ── */}
-      <header style={styles.header}>
-        <h1 style={styles.headerTitle}>The Masters Live Dashboard</h1>
-        <p style={styles.headerSub}>Augusta National Golf Club · April 2026</p>
-        <span style={styles.liveBadge}>● Live</span>
+      <header style={S.header}>
+        <div style={S.headerInner}>
+          <p style={S.headerEyebrow}>Augusta National Golf Club</p>
+          <h1 style={S.headerTitle}>The Masters Live Dashboard</h1>
+          <p style={S.headerYear}>April 2026</p>
+          <span style={S.liveBadge}>
+            <span style={S.liveDot} />
+            Live
+          </span>
+        </div>
       </header>
 
-      {/* ── Two-column layout ── */}
-      <main style={styles.main}>
+      {/* ── Body ── */}
+      <main style={S.main}>
 
-        {/* Left: leaderboard */}
-        <CardShell
+        <Card
           title={tournament ? tournament.name : "Leaderboard"}
           subtitle={roundLabel}
+          accent={C.yellow}
         >
           <LeaderboardSection
             data={leaderboard}
-            tournament={tournament}
             loading={boardLoading}
             error={boardError}
           />
-        </CardShell>
+        </Card>
 
-        {/* Right: weather */}
-        <CardShell title="Course Weather">
-          <WeatherSection
-            data={weather}
-            loading={weatherLoading}
-            error={weatherError}
-          />
-        </CardShell>
+        <div style={S.sidebar}>
+          <Card title="Course Weather" accent={C.azalea}>
+            <WeatherSection
+              data={weather}
+              loading={weatherLoading}
+              error={weatherError}
+            />
+          </Card>
+        </div>
 
       </main>
 
-      <footer style={styles.footer}>
-        Augusta National Golf Club · Data via RapidAPI &amp; OpenWeather
+      <footer style={S.footer}>
+        <span>Augusta National Golf Club</span>
+        <span style={S.footerDot}>·</span>
+        <span>Weather by OpenWeather</span>
+        <span style={S.footerDot}>·</span>
+        <span>Scores by RapidAPI</span>
       </footer>
     </div>
   );
@@ -301,204 +382,323 @@ export default function MastersDashboard() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = {
+const S = {
   page: {
-    fontFamily: "'Georgia', serif",
-    backgroundColor: C.khakiLight,
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    backgroundColor: C.khakiBg,
     minHeight: "100vh",
     color: C.blue,
   },
+
+  // Header
   header: {
-    backgroundColor: C.green,
-    color: C.white,
+    background: `linear-gradient(160deg, ${C.greenDark} 0%, ${C.green} 100%)`,
+    borderBottom: `5px solid ${C.yellow}`,
+    padding: "40px 20px 32px",
     textAlign: "center",
-    padding: "24px 16px 16px",
-    borderBottom: `6px solid ${C.yellow}`,
+  },
+  headerInner: {
+    maxWidth: 700,
+    margin: "0 auto",
+  },
+  headerEyebrow: {
+    margin: "0 0 8px",
+    fontSize: "0.75rem",
+    fontWeight: 600,
+    letterSpacing: "0.2em",
+    textTransform: "uppercase",
+    color: C.khaki,
   },
   headerTitle: {
-    fontSize: "2.4rem",
-    fontWeight: "bold",
-    letterSpacing: "0.05em",
     margin: 0,
+    fontFamily: "Georgia, serif",
+    fontSize: "clamp(1.6rem, 4vw, 2.6rem)",
+    fontWeight: "bold",
+    letterSpacing: "0.03em",
+    color: C.white,
+    lineHeight: 1.2,
   },
-  headerSub: {
+  headerYear: {
+    margin: "8px 0 16px",
     fontSize: "0.9rem",
-    color: C.khaki,
-    marginTop: "6px",
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
+    color: "rgba(255,255,255,0.6)",
+    letterSpacing: "0.06em",
   },
   liveBadge: {
-    display: "inline-block",
-    backgroundColor: C.yellow,
-    color: C.blue,
-    fontSize: "0.75rem",
-    fontWeight: "bold",
-    padding: "3px 12px",
-    borderRadius: "12px",
-    marginTop: "10px",
-    letterSpacing: "0.08em",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    border: `1px solid rgba(255,255,255,0.3)`,
+    color: C.white,
+    fontSize: "0.72rem",
+    fontWeight: 700,
+    padding: "4px 12px",
+    borderRadius: 20,
+    letterSpacing: "0.12em",
     textTransform: "uppercase",
   },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+    backgroundColor: C.yellow,
+    display: "inline-block",
+    animation: "pulse 1.5s ease-in-out infinite",
+  },
+
+  // Layout
   main: {
-    maxWidth: "1100px",
+    maxWidth: 1160,
     margin: "0 auto",
-    padding: "28px 16px",
+    padding: "32px 20px",
     display: "grid",
-    gridTemplateColumns: "1fr 360px",
-    gap: "24px",
+    gridTemplateColumns: "1fr 340px",
+    gap: 24,
     alignItems: "start",
   },
+  sidebar: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 24,
+  },
+
+  // Card
   card: {
     backgroundColor: C.white,
-    borderRadius: "8px",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.09)",
+    borderRadius: 12,
+    boxShadow: "0 4px 6px rgba(0,0,0,0.05), 0 10px 30px rgba(0,0,0,0.08)",
     overflow: "hidden",
+    border: `1px solid rgba(0,0,0,0.06)`,
   },
   cardHead: {
     backgroundColor: C.green,
-    color: C.white,
-    padding: "12px 20px",
+    padding: "14px 20px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
   },
   cardTitle: {
     margin: 0,
-    fontSize: "1.05rem",
-    fontWeight: "bold",
-    letterSpacing: "0.06em",
+    fontSize: "0.8rem",
+    fontWeight: 700,
+    letterSpacing: "0.12em",
     textTransform: "uppercase",
+    color: C.white,
   },
   cardSub: {
-    fontSize: "0.75rem",
-    color: C.khaki,
+    display: "block",
+    fontSize: "0.7rem",
+    color: "rgba(255,255,255,0.6)",
+    marginTop: 3,
     letterSpacing: "0.05em",
   },
-  loading: {
-    textAlign: "center",
-    padding: "40px",
-    color: C.green,
-    fontSize: "0.95rem",
-    letterSpacing: "0.08em",
+
+  // Loading
+  loadingWrap: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: "48px 20px",
+    gap: 4,
   },
-  err: {
-    textAlign: "center",
-    padding: "24px",
+
+  // Error
+  errWrap: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    padding: "32px 24px",
+    gap: 10,
+  },
+  errIcon: {
+    fontSize: "1.6rem",
+  },
+  errText: {
     color: C.red,
-    fontSize: "0.9rem",
+    fontSize: "0.85rem",
+    textAlign: "center",
+    lineHeight: 1.5,
+    maxWidth: 360,
   },
+
+  // Table
   table: {
     width: "100%",
     borderCollapse: "collapse",
   },
   th: {
-    padding: "9px 16px",
+    padding: "10px 14px",
     textAlign: "left",
-    fontSize: "0.72rem",
-    fontWeight: "bold",
+    fontSize: "0.68rem",
+    fontWeight: 700,
     textTransform: "uppercase",
-    letterSpacing: "0.08em",
-    color: C.green,
-    borderBottom: `2px solid ${C.khaki}`,
+    letterSpacing: "0.1em",
+    color: C.silver,
+    borderBottom: `2px solid ${C.khakiLight}`,
+    whiteSpace: "nowrap",
   },
   row: {
     borderBottom: `1px solid ${C.khakiLight}`,
+    transition: "background 0.15s",
   },
   td: {
-    padding: "11px 16px",
+    padding: "12px 14px",
+    fontSize: "0.93rem",
+    verticalAlign: "middle",
+  },
+
+  // Position badges
+  posBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 26,
+    height: 26,
+    borderRadius: "50%",
+    fontSize: "0.75rem",
+    fontWeight: 700,
+  },
+  posPlain: {
+    display: "inline-block",
+    fontSize: "0.88rem",
+    fontWeight: 700,
+    color: C.green,
+    width: 26,
+    textAlign: "center",
+  },
+
+  // Score pill
+  pill: {
+    display: "inline-block",
+    padding: "3px 10px",
+    borderRadius: 20,
+    fontSize: "0.8rem",
+    fontWeight: 700,
+    minWidth: 40,
+    textAlign: "center",
+    letterSpacing: "0.02em",
+  },
+
+  // Player
+  playerName: {
+    fontWeight: 600,
+    color: C.blue,
     fontSize: "0.93rem",
   },
-  pos: {
-    fontWeight: "bold",
-    color: C.green,
-    width: "36px",
-  },
-  score: {
-    fontWeight: "bold",
-    fontSize: "1rem",
-  },
-  playerName: {
-    fontWeight: "bold",
-    color: C.blue,
-  },
   playerSub: {
-    fontSize: "0.75rem",
+    fontSize: "0.72rem",
     color: C.khaki,
-    marginTop: "2px",
+    marginTop: 2,
+    fontWeight: 500,
+    letterSpacing: "0.04em",
   },
+
+  // Cut bar
   cutBar: {
     backgroundColor: C.azalea,
     textAlign: "center",
-    padding: "5px 16px",
-    fontSize: "0.75rem",
-    fontWeight: "bold",
-    letterSpacing: "0.08em",
+    padding: "7px 16px",
+    fontSize: "0.72rem",
+    fontWeight: 700,
+    letterSpacing: "0.1em",
     textTransform: "uppercase",
     color: C.blue,
   },
+
+  // Weather
   weatherBody: {
-    padding: "20px",
+    padding: "24px 20px 20px",
   },
-  weatherTop: {
+  weatherHero: {
     display: "flex",
     alignItems: "center",
-    gap: "16px",
-    paddingBottom: "20px",
-    marginBottom: "20px",
-    borderBottom: `1px solid ${C.khakiLight}`,
+    gap: 20,
+    marginBottom: 4,
   },
   weatherEmoji: {
-    fontSize: "3.5rem",
+    fontSize: "4rem",
     lineHeight: 1,
+    flexShrink: 0,
+  },
+  weatherInfo: {
+    flex: 1,
   },
   weatherTemp: {
-    fontSize: "2.4rem",
-    fontWeight: "bold",
+    fontSize: "3rem",
+    fontWeight: 700,
     color: C.blue,
     lineHeight: 1,
+    fontFamily: "Georgia, serif",
   },
   weatherDesc: {
-    fontSize: "0.95rem",
+    fontSize: "1rem",
     color: C.green,
-    marginTop: "4px",
+    marginTop: 4,
     fontStyle: "italic",
+    fontFamily: "Georgia, serif",
   },
   weatherLoc: {
-    fontSize: "0.75rem",
+    fontSize: "0.72rem",
     color: C.khaki,
     textTransform: "uppercase",
-    letterSpacing: "0.08em",
-    marginTop: "4px",
+    letterSpacing: "0.1em",
+    marginTop: 6,
+    fontWeight: 600,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: C.khakiLight,
+    margin: "20px 0",
   },
   statGrid: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "12px",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: 10,
   },
-  statBox: {
-    backgroundColor: C.khakiLight,
-    borderRadius: "6px",
-    padding: "10px 12px",
+  statTile: {
+    backgroundColor: C.khakiBg,
+    border: `1px solid ${C.khakiLight}`,
+    borderRadius: 10,
+    padding: "14px 10px",
+    textAlign: "center",
   },
-  statLabel: {
-    fontSize: "0.68rem",
-    textTransform: "uppercase",
-    letterSpacing: "0.08em",
-    color: C.khaki,
-    marginBottom: "4px",
+  statIcon: {
+    fontSize: "1.3rem",
+    marginBottom: 6,
+    lineHeight: 1,
   },
   statValue: {
-    fontSize: "1.1rem",
-    fontWeight: "bold",
+    fontSize: "1rem",
+    fontWeight: 700,
     color: C.blue,
+    lineHeight: 1,
+    marginBottom: 4,
   },
+  statLabel: {
+    fontSize: "0.65rem",
+    textTransform: "uppercase",
+    letterSpacing: "0.1em",
+    color: C.khaki,
+    fontWeight: 600,
+  },
+
+  // Footer
   footer: {
     backgroundColor: C.greenDark,
-    color: C.khaki,
+    color: "rgba(255,255,255,0.5)",
     textAlign: "center",
-    padding: "14px",
-    fontSize: "0.78rem",
-    letterSpacing: "0.06em",
+    padding: "16px 20px",
+    fontSize: "0.75rem",
+    letterSpacing: "0.05em",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "0 10px",
+  },
+  footerDot: {
+    color: C.yellow,
+    fontWeight: "bold",
   },
 };
