@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 const OPENWEATHER_KEY = process.env.REACT_APP_OPENWEATHER_KEY;
 const RAPIDAPI_KEY    = process.env.REACT_APP_RAPIDAPI_KEY;
 
-// 2026 PGA Championship — Quail Hollow Club, Charlotte, NC
 const WEATHER_URL =
   `https://api.openweathermap.org/data/2.5/weather?q=Charlotte,NC,US&units=imperial&appid=${OPENWEATHER_KEY}`;
 
@@ -15,24 +14,75 @@ const RAPIDAPI_HEADERS = {
   "x-rapidapi-key": RAPIDAPI_KEY,
 };
 
+// ─── Cache (localStorage, 5-minute TTL) ───────────────────────────────────────
+const CACHE_TTL_MS  = 5 * 60 * 1000;
+const CACHE_WEATHER = "pga_weather";
+const CACHE_BOARD   = "pga_board";
+
+function cacheGet(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL_MS) { localStorage.removeItem(key); return null; }
+    return { data, ts };
+  } catch { return null; }
+}
+
+function cacheSet(key, data) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }));
+  } catch {} // storage unavailable — silently skip
+}
+
+function cacheClear() {
+  localStorage.removeItem(CACHE_WEATHER);
+  localStorage.removeItem(CACHE_BOARD);
+}
+
+// ─── Streaming Fetch ──────────────────────────────────────────────────────────
+// Reads the response body as a ReadableStream, accumulating chunks
+// into a string before parsing — rather than buffering the whole response.
+async function fetchStream(url, options = {}) {
+  const res = await fetch(url, options);
+
+  if (res.status === 401) throw new Error("Invalid API key (401).");
+  if (res.status === 403) throw new Error("API key rejected (403). Check your RapidAPI subscription.");
+  if (!res.ok)            throw new Error(`HTTP error: ${res.status}`);
+
+  const reader  = res.body.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    text += decoder.decode(value, { stream: true });
+  }
+  text += decoder.decode(); // flush any remaining bytes
+
+  return JSON.parse(text);
+}
+
 // ─── Theme ────────────────────────────────────────────────────────────────────
 const C = {
-  azure:      "#003C80",   // Dark Azure — primary
-  azureDark:  "#002660",   // deeper azure for gradient
-  azureMid:   "#004499",   // mid azure for hover states
-  red:        "#F1373D",   // Shiny Red — accent
-  redDark:    "#C42D32",   // darker red for over-par scores
-  white:      "#FFFFFF",   // Full White
-  pageBg:     "#EEF2FA",   // very light azure tint — page background
-  border:     "#D0DBEE",   // light blue border
-  rowAlt:     "#F5F8FD",   // subtle alternate row
-  silver:     "#7A8CA8",   // blue-grey muted text
-  textDark:   "#0D1F3C",   // near-black for body text
-  scoreUnder: "#0055C8",   // bright azure for under-par
+  azure:      "#003C80",
+  azureDark:  "#002660",
+  red:        "#F1373D",
+  redDark:    "#C42D32",
+  white:      "#FFFFFF",
+  pageBg:     "#EEF2FA",
+  border:     "#D0DBEE",
+  rowAlt:     "#F5F8FD",
+  silver:     "#7A8CA8",
+  textDark:   "#0D1F3C",
+  scoreUnder: "#0055C8",
 };
 
-// ─── Keyframe injection ────────────────────────────────────────────────────────
-const KEYFRAMES = `
+// ─── Global CSS (keyframes + responsive breakpoints) ─────────────────────────
+const GLOBAL_CSS = `
+  *, *::before, *::after { box-sizing: border-box; }
+
   @keyframes pulse {
     0%, 100% { opacity: 1;   transform: scale(1);    }
     50%       { opacity: 0.3; transform: scale(0.75); }
@@ -44,11 +94,33 @@ const KEYFRAMES = `
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
+
   .lb-row { animation: fadein 0.3s ease both; }
   .lb-row:hover { background-color: #E8EFF9 !important; }
   .refresh-btn:hover { background-color: rgba(255,255,255,0.25) !important; }
   .refresh-btn:active { transform: scale(0.93); }
   .refresh-btn.spinning svg { animation: spin 0.7s linear infinite; }
+
+  /* ── Responsive grid ── */
+  .pga-main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 24px;
+    align-items: start;
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 32px 20px;
+  }
+
+  @media (max-width: 960px) {
+    .pga-main { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 600px) {
+    .pga-main    { padding: 16px 12px; gap: 16px; }
+    .pga-header  { padding: 24px 16px 20px !important; }
+    .hide-mobile { display: none !important; }
+  }
 `;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -73,6 +145,14 @@ function weatherIcon(id) {
   return "⛅";
 }
 
+function timeSince(ts, now) {
+  const secs = Math.floor((now - ts) / 1000);
+  if (secs < 60)  return `${secs}s ago`;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60)  return `${mins}m ago`;
+  return `${Math.floor(mins / 60)}h ago`;
+}
+
 // ─── Shared UI Primitives ─────────────────────────────────────────────────────
 
 function RefreshButton({ onClick, spinning }) {
@@ -83,7 +163,8 @@ function RefreshButton({ onClick, spinning }) {
       title="Refresh"
       style={S.refreshBtn}
     >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="23 4 23 10 17 10" />
         <polyline points="1 20 1 14 7 14" />
         <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
@@ -92,7 +173,21 @@ function RefreshButton({ onClick, spinning }) {
   );
 }
 
-function Card({ title, subtitle, accent, children, onRefresh, refreshing }) {
+function CacheBar({ meta, now }) {
+  if (!meta) return null;
+  const fromCache = meta.fromCache;
+  return (
+    <div style={S.cacheBar}>
+      <span style={{ color: fromCache ? "#E8A000" : "#00A86B", fontWeight: 700 }}>
+        {fromCache ? "⚡ Cached" : "🔄 Live"}
+      </span>
+      <span style={S.cacheDot}>·</span>
+      <span>Updated {timeSince(meta.ts, now)}</span>
+    </div>
+  );
+}
+
+function Card({ title, subtitle, accent, children, onRefresh, refreshing, meta, now }) {
   return (
     <div style={S.card}>
       <div style={{ height: 4, backgroundColor: accent || C.red }} />
@@ -104,25 +199,20 @@ function Card({ title, subtitle, accent, children, onRefresh, refreshing }) {
         {onRefresh && <RefreshButton onClick={onRefresh} spinning={refreshing} />}
       </div>
       {children}
+      <CacheBar meta={meta} now={now} />
     </div>
   );
 }
 
 function Loading() {
-  const dotStyle = (delay) => ({
-    display: "inline-block",
-    width: 8,
-    height: 8,
-    borderRadius: "50%",
-    backgroundColor: C.azure,
-    margin: "0 4px",
+  const dot = (delay) => ({
+    display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+    backgroundColor: C.azure, margin: "0 4px",
     animation: `pulse 1.2s ease-in-out ${delay}s infinite`,
   });
   return (
     <div style={S.loadingWrap}>
-      <span style={dotStyle(0)} />
-      <span style={dotStyle(0.2)} />
-      <span style={dotStyle(0.4)} />
+      <span style={dot(0)} /><span style={dot(0.2)} /><span style={dot(0.4)} />
     </div>
   );
 }
@@ -140,20 +230,18 @@ function ScorePill({ score }) {
   if (score === null || score === undefined) {
     return <span style={{ ...S.pill, backgroundColor: "#D8E2EF", color: C.silver }}>–</span>;
   }
-  const bg    = score < 0 ? C.scoreUnder : score > 0 ? C.redDark : "#4A6080";
-  const label = fmtScore(score);
-  return <span style={{ ...S.pill, backgroundColor: bg, color: C.white }}>{label}</span>;
+  const bg = score < 0 ? C.scoreUnder : score > 0 ? C.redDark : "#4A6080";
+  return <span style={{ ...S.pill, backgroundColor: bg, color: C.white }}>{fmtScore(score)}</span>;
 }
 
 function PosBadge({ position }) {
-  const medal = position === 1 ? { bg: "#C9963A", color: C.white }
-              : position === 2 ? { bg: "#9E9E9E", color: C.white }
-              : position === 3 ? { bg: "#A0744C", color: C.white }
+  const medal = position === 1 ? { bg: "#C9963A" }
+              : position === 2 ? { bg: "#9E9E9E" }
+              : position === 3 ? { bg: "#A0744C" }
               : null;
-
   if (medal) {
     return (
-      <span style={{ ...S.posBadge, backgroundColor: medal.bg, color: medal.color }}>
+      <span style={{ ...S.posBadge, backgroundColor: medal.bg, color: C.white }}>
         {position}
       </span>
     );
@@ -178,8 +266,8 @@ function LeaderboardSection({ data, loading, error }) {
             <th style={{ ...S.th, width: 52 }}>Pos</th>
             <th style={S.th}>Player</th>
             <th style={{ ...S.th, textAlign: "center", width: 76 }}>Total</th>
-            <th style={{ ...S.th, textAlign: "center", width: 76 }}>Today</th>
-            <th style={{ ...S.th, textAlign: "center", width: 60 }}>Thru</th>
+            <th className="hide-mobile" style={{ ...S.th, textAlign: "center", width: 76 }}>Today</th>
+            <th className="hide-mobile" style={{ ...S.th, textAlign: "center", width: 60 }}>Thru</th>
           </tr>
         </thead>
         <tbody>
@@ -190,9 +278,9 @@ function LeaderboardSection({ data, loading, error }) {
             const thru       = p.holes_played === 18 ? "F"
                              : p.holes_played === 0  ? "–"
                              : p.holes_played;
-            const isLeader   = p.position === 1;
-            const rowBg      = isLeader ? "#EAF0FB" : i % 2 === 0 ? C.white : C.rowAlt;
-
+            const rowBg      = p.position === 1 ? "#EAF0FB"
+                             : i % 2 === 0      ? C.white
+                             : C.rowAlt;
             return (
               <tr
                 key={p.player_id}
@@ -209,10 +297,10 @@ function LeaderboardSection({ data, loading, error }) {
                 <td style={{ ...S.td, textAlign: "center" }}>
                   <ScorePill score={total} />
                 </td>
-                <td style={{ ...S.td, textAlign: "center", opacity: 0.85 }}>
+                <td className="hide-mobile" style={{ ...S.td, textAlign: "center", opacity: 0.85 }}>
                   <ScorePill score={today} />
                 </td>
-                <td style={{ ...S.td, textAlign: "center", color: C.silver, fontSize: "0.85rem", fontWeight: 600 }}>
+                <td className="hide-mobile" style={{ ...S.td, textAlign: "center", color: C.silver, fontSize: "0.85rem", fontWeight: 600 }}>
                   {thru}
                 </td>
               </tr>
@@ -276,15 +364,26 @@ export default function MastersDashboard() {
   const [weather,        setWeather]        = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
   const [weatherError,   setWeatherError]   = useState(null);
+  const [weatherMeta,    setWeatherMeta]    = useState(null);
 
   const [leaderboard,  setLeaderboard]  = useState([]);
   const [tournament,   setTournament]   = useState(null);
   const [boardLoading, setBoardLoading] = useState(true);
   const [boardError,   setBoardError]   = useState(null);
+  const [boardMeta,    setBoardMeta]    = useState(null);
 
   const [refreshCount, setRefreshCount] = useState(0);
+  const [now,          setNow]          = useState(Date.now());
 
-  function refresh() {
+  // Tick every 30 s so "X min ago" labels stay current
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Clears the cache and triggers a fresh fetch for both sections
+  function handleRefresh() {
+    cacheClear();
     setWeatherLoading(true);
     setWeatherError(null);
     setBoardLoading(true);
@@ -294,50 +393,62 @@ export default function MastersDashboard() {
 
   useEffect(() => {
 
-    // 1. Weather
+    // ── 1. Weather ────────────────────────────────────────────────────────────
     if (!OPENWEATHER_KEY) {
       setWeatherError("REACT_APP_OPENWEATHER_KEY is not set. Add it to .env or the Netlify dashboard.");
       setWeatherLoading(false);
     } else {
-      fetch(WEATHER_URL)
-        .then((res) => {
-          if (res.status === 401) throw new Error("Invalid OpenWeather API key (401).");
-          if (!res.ok)            throw new Error(`Weather API error: ${res.status}`);
-          return res.json();
-        })
-        .then((d) => {
-          setWeather({
-            temp:        `${Math.round(d.main.temp)}°F`,
-            feelsLike:   `${Math.round(d.main.feels_like)}°F`,
-            humidity:    `${d.main.humidity}%`,
-            wind:        `${Math.round(d.wind.speed)} mph`,
-            description: d.weather[0].description
-              .split(" ").map((w) => w[0].toUpperCase() + w.slice(1)).join(" "),
-            icon: weatherIcon(d.weather[0].id),
-          });
-        })
-        .catch((e) => setWeatherError(e.message))
-        .finally(() => setWeatherLoading(false));
+      const cached = cacheGet(CACHE_WEATHER);
+      if (cached) {
+        setWeather(cached.data);
+        setWeatherMeta({ ts: cached.ts, fromCache: true });
+        setWeatherLoading(false);
+      } else {
+        fetchStream(WEATHER_URL)
+          .then((d) => {
+            const parsed = {
+              temp:        `${Math.round(d.main.temp)}°F`,
+              feelsLike:   `${Math.round(d.main.feels_like)}°F`,
+              humidity:    `${d.main.humidity}%`,
+              wind:        `${Math.round(d.wind.speed)} mph`,
+              description: d.weather[0].description
+                .split(" ").map((w) => w[0].toUpperCase() + w.slice(1)).join(" "),
+              icon: weatherIcon(d.weather[0].id),
+            };
+            setWeather(parsed);
+            cacheSet(CACHE_WEATHER, parsed);
+            setWeatherMeta({ ts: Date.now(), fromCache: false });
+          })
+          .catch((e) => setWeatherError(e.message))
+          .finally(() => setWeatherLoading(false));
+      }
     }
 
-    // 2. Golf leaderboard
+    // ── 2. Golf leaderboard ───────────────────────────────────────────────────
     if (!RAPIDAPI_KEY) {
       setBoardError("REACT_APP_RAPIDAPI_KEY is not set. Add it to .env or the Netlify dashboard.");
       setBoardLoading(false);
     } else {
-      fetch(GOLF_URL, { method: "GET", headers: RAPIDAPI_HEADERS })
-        .then((res) => {
-          if (res.status === 403) throw new Error("RapidAPI key rejected (403). Confirm your Golf Leaderboard subscription at rapidapi.com.");
-          if (res.status === 401) throw new Error("RapidAPI key invalid (401).");
-          if (!res.ok)            throw new Error(`Golf API error: ${res.status}`);
-          return res.json();
-        })
-        .then((d) => {
-          setTournament(d.results.tournament);
-          setLeaderboard(d.results.leaderboard);
-        })
-        .catch((e) => setBoardError(e.message))
-        .finally(() => setBoardLoading(false));
+      const cached = cacheGet(CACHE_BOARD);
+      if (cached) {
+        setTournament(cached.data.tournament);
+        setLeaderboard(cached.data.leaderboard);
+        setBoardMeta({ ts: cached.ts, fromCache: true });
+        setBoardLoading(false);
+      } else {
+        fetchStream(GOLF_URL, { method: "GET", headers: RAPIDAPI_HEADERS })
+          .then((d) => {
+            setTournament(d.results.tournament);
+            setLeaderboard(d.results.leaderboard);
+            cacheSet(CACHE_BOARD, {
+              tournament: d.results.tournament,
+              leaderboard: d.results.leaderboard,
+            });
+            setBoardMeta({ ts: Date.now(), fromCache: false });
+          })
+          .catch((e) => setBoardError(e.message))
+          .finally(() => setBoardLoading(false));
+      }
     }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -353,10 +464,10 @@ export default function MastersDashboard() {
 
   return (
     <div style={S.page}>
-      <style>{KEYFRAMES}</style>
+      <style>{GLOBAL_CSS}</style>
 
       {/* ── Header ── */}
-      <header style={S.header}>
+      <header className="pga-header" style={S.header}>
         <div style={S.headerInner}>
           <p style={S.headerEyebrow}>Quail Hollow Club · Charlotte, NC</p>
           <h1 style={S.headerTitle}>PGA Golf Live Leaderboard</h1>
@@ -369,14 +480,16 @@ export default function MastersDashboard() {
       </header>
 
       {/* ── Body ── */}
-      <main style={S.main}>
+      <main className="pga-main">
 
         <Card
           title={tournament ? tournament.name : "Leaderboard"}
           subtitle={roundLabel}
           accent={C.red}
-          onRefresh={refresh}
+          onRefresh={handleRefresh}
           refreshing={boardLoading}
+          meta={boardMeta}
+          now={now}
         >
           <LeaderboardSection
             data={leaderboard}
@@ -389,8 +502,10 @@ export default function MastersDashboard() {
           <Card
             title="Course Weather"
             accent={C.red}
-            onRefresh={refresh}
+            onRefresh={handleRefresh}
             refreshing={weatherLoading}
+            meta={weatherMeta}
+            now={now}
           >
             <WeatherSection
               data={weather}
@@ -430,10 +545,7 @@ const S = {
     padding: "40px 20px 32px",
     textAlign: "center",
   },
-  headerInner: {
-    maxWidth: 700,
-    margin: "0 auto",
-  },
+  headerInner: { maxWidth: 700, margin: "0 auto" },
   headerEyebrow: {
     margin: "0 0 8px",
     fontSize: "0.75rem",
@@ -445,7 +557,7 @@ const S = {
   headerTitle: {
     margin: 0,
     fontFamily: "Georgia, serif",
-    fontSize: "clamp(1.6rem, 4vw, 2.6rem)",
+    fontSize: "clamp(1.4rem, 4vw, 2.6rem)",
     fontWeight: "bold",
     letterSpacing: "0.03em",
     color: C.white,
@@ -480,21 +592,8 @@ const S = {
     animation: "pulse 1.5s ease-in-out infinite",
   },
 
-  // Layout
-  main: {
-    maxWidth: 1160,
-    margin: "0 auto",
-    padding: "32px 20px",
-    display: "grid",
-    gridTemplateColumns: "1fr 340px",
-    gap: 24,
-    alignItems: "start",
-  },
-  sidebar: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 24,
-  },
+  // Layout — non-responsive properties only; grid columns handled by .pga-main CSS class
+  sidebar: { display: "flex", flexDirection: "column", gap: 24 },
 
   // Card
   card: {
@@ -540,6 +639,20 @@ const S = {
     flexShrink: 0,
   },
 
+  // Cache bar
+  cacheBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "7px 16px",
+    fontSize: "0.7rem",
+    color: C.silver,
+    backgroundColor: C.pageBg,
+    borderTop: `1px solid ${C.border}`,
+    letterSpacing: "0.03em",
+  },
+  cacheDot: { color: C.border, fontWeight: "bold" },
+
   // Loading
   loadingWrap: {
     display: "flex",
@@ -557,9 +670,7 @@ const S = {
     padding: "32px 24px",
     gap: 10,
   },
-  errIcon: {
-    fontSize: "1.6rem",
-  },
+  errIcon: { fontSize: "1.6rem" },
   errText: {
     color: C.red,
     fontSize: "0.85rem",
@@ -569,10 +680,7 @@ const S = {
   },
 
   // Table
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-  },
+  table: { width: "100%", borderCollapse: "collapse" },
   th: {
     padding: "10px 14px",
     textAlign: "left",
@@ -584,15 +692,8 @@ const S = {
     borderBottom: `2px solid ${C.border}`,
     whiteSpace: "nowrap",
   },
-  row: {
-    borderBottom: `1px solid ${C.border}`,
-    transition: "background 0.15s",
-  },
-  td: {
-    padding: "12px 14px",
-    fontSize: "0.93rem",
-    verticalAlign: "middle",
-  },
+  row: { borderBottom: `1px solid ${C.border}`, transition: "background 0.15s" },
+  td:  { padding: "12px 14px", fontSize: "0.93rem", verticalAlign: "middle" },
 
   // Position badges
   posBadge: {
@@ -627,18 +728,8 @@ const S = {
   },
 
   // Player
-  playerName: {
-    fontWeight: 600,
-    color: C.textDark,
-    fontSize: "0.93rem",
-  },
-  playerSub: {
-    fontSize: "0.72rem",
-    color: C.silver,
-    marginTop: 2,
-    fontWeight: 500,
-    letterSpacing: "0.04em",
-  },
+  playerName: { fontWeight: 600, color: C.textDark, fontSize: "0.93rem" },
+  playerSub:  { fontSize: "0.72rem", color: C.silver, marginTop: 2, fontWeight: 500, letterSpacing: "0.04em" },
 
   // Cut bar
   cutBar: {
@@ -653,23 +744,10 @@ const S = {
   },
 
   // Weather
-  weatherBody: {
-    padding: "24px 20px 20px",
-  },
-  weatherHero: {
-    display: "flex",
-    alignItems: "center",
-    gap: 20,
-    marginBottom: 4,
-  },
-  weatherEmoji: {
-    fontSize: "4rem",
-    lineHeight: 1,
-    flexShrink: 0,
-  },
-  weatherInfo: {
-    flex: 1,
-  },
+  weatherBody:  { padding: "24px 20px 20px" },
+  weatherHero:  { display: "flex", alignItems: "center", gap: 20, marginBottom: 4 },
+  weatherEmoji: { fontSize: "4rem", lineHeight: 1, flexShrink: 0 },
+  weatherInfo:  { flex: 1 },
   weatherTemp: {
     fontSize: "3rem",
     fontWeight: 700,
@@ -693,16 +771,8 @@ const S = {
     marginTop: 6,
     fontWeight: 600,
   },
-  divider: {
-    height: 1,
-    backgroundColor: C.border,
-    margin: "20px 0",
-  },
-  statGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
-    gap: 10,
-  },
+  divider:  { height: 1, backgroundColor: C.border, margin: "20px 0" },
+  statGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 },
   statTile: {
     backgroundColor: C.pageBg,
     border: `1px solid ${C.border}`,
@@ -710,18 +780,8 @@ const S = {
     padding: "14px 10px",
     textAlign: "center",
   },
-  statIcon: {
-    fontSize: "1.3rem",
-    marginBottom: 6,
-    lineHeight: 1,
-  },
-  statValue: {
-    fontSize: "1rem",
-    fontWeight: 700,
-    color: C.azure,
-    lineHeight: 1,
-    marginBottom: 4,
-  },
+  statIcon:  { fontSize: "1.3rem", marginBottom: 6, lineHeight: 1 },
+  statValue: { fontSize: "1rem", fontWeight: 700, color: C.azure, lineHeight: 1, marginBottom: 4 },
   statLabel: {
     fontSize: "0.65rem",
     textTransform: "uppercase",
@@ -744,8 +804,5 @@ const S = {
     flexWrap: "wrap",
     gap: "0 10px",
   },
-  footerDot: {
-    color: C.red,
-    fontWeight: "bold",
-  },
+  footerDot: { color: C.red, fontWeight: "bold" },
 };
