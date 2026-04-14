@@ -41,8 +41,14 @@ const KEYFRAMES = `
     from { opacity: 0; transform: translateY(6px); }
     to   { opacity: 1; transform: translateY(0);   }
   }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
   .lb-row { animation: fadein 0.3s ease both; }
   .lb-row:hover { background-color: #F5F0E8 !important; }
+  .refresh-btn:hover { background-color: rgba(255,255,255,0.25) !important; }
+  .refresh-btn:active { transform: scale(0.93); }
+  .refresh-btn.spinning svg { animation: spin 0.7s linear infinite; }
 `;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -69,16 +75,34 @@ function weatherIcon(id) {
 
 // ─── Shared UI Primitives ─────────────────────────────────────────────────────
 
-function Card({ title, subtitle, accent, children }) {
+function RefreshButton({ onClick, spinning }) {
+  return (
+    <button
+      className={`refresh-btn${spinning ? " spinning" : ""}`}
+      onClick={onClick}
+      title="Refresh"
+      style={S.refreshBtn}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="23 4 23 10 17 10" />
+        <polyline points="1 20 1 14 7 14" />
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+      </svg>
+    </button>
+  );
+}
+
+function Card({ title, subtitle, accent, children, onRefresh, refreshing }) {
   return (
     <div style={S.card}>
-      {/* Yellow top accent bar */}
+      {/* Colored top accent bar */}
       <div style={{ height: 4, backgroundColor: accent || C.yellow }} />
       <div style={S.cardHead}>
         <div>
           <h2 style={S.cardTitle}>{title}</h2>
           {subtitle && <span style={S.cardSub}>{subtitle}</span>}
         </div>
+        {onRefresh && <RefreshButton onClick={onRefresh} spinning={refreshing} />}
       </div>
       {children}
     </div>
@@ -267,6 +291,16 @@ export default function MastersDashboard() {
   const [boardLoading, setBoardLoading] = useState(true);
   const [boardError,   setBoardError]   = useState(null);
 
+  const [refreshCount, setRefreshCount] = useState(0);
+
+  function refresh() {
+    setWeatherLoading(true);
+    setWeatherError(null);
+    setBoardLoading(true);
+    setBoardError(null);
+    setRefreshCount((n) => n + 1);
+  }
+
   useEffect(() => {
 
     // 1. Weather
@@ -315,7 +349,8 @@ export default function MastersDashboard() {
         .finally(() => setBoardLoading(false));
     }
 
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshCount]);
 
   const roundLabel = tournament
     ? `Round ${tournament.live_details.current_round} of ${tournament.live_details.total_rounds} · ${
@@ -349,6 +384,8 @@ export default function MastersDashboard() {
           title={tournament ? tournament.name : "Leaderboard"}
           subtitle={roundLabel}
           accent={C.yellow}
+          onRefresh={refresh}
+          refreshing={boardLoading}
         >
           <LeaderboardSection
             data={leaderboard}
@@ -358,7 +395,12 @@ export default function MastersDashboard() {
         </Card>
 
         <div style={S.sidebar}>
-          <Card title="Course Weather" accent={C.azalea}>
+          <Card
+            title="Course Weather"
+            accent={C.azalea}
+            onRefresh={refresh}
+            refreshing={weatherLoading}
+          >
             <WeatherSection
               data={weather}
               loading={weatherLoading}
@@ -492,6 +534,19 @@ const S = {
     color: "rgba(255,255,255,0.6)",
     marginTop: 3,
     letterSpacing: "0.05em",
+  },
+  refreshBtn: {
+    background: "rgba(255,255,255,0.15)",
+    border: "1px solid rgba(255,255,255,0.3)",
+    borderRadius: 6,
+    color: C.white,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "6px 8px",
+    transition: "background 0.15s, transform 0.1s",
+    flexShrink: 0,
   },
 
   // Loading
